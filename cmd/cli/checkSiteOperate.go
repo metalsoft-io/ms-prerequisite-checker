@@ -27,8 +27,11 @@ func checkSiteOperate(ctx context.Context, endCh chan<- string, app *application
 	errors += app.testUDPConnection(ctx, globalControllerHostname, 53)
 
 	if nfs := args["nfs-server"]; nfs != "" {
-		// NFS server → TCP port 2049
+		// NFS server - TCP/UDP ports 111 and 2049
+		errors += app.testTCPConnection(ctx, nfs, 111)
+		errors += app.testUDPConnection(ctx, nfs, 111)
 		errors += app.testTCPConnection(ctx, nfs, 2049)
+		errors += app.testUDPConnection(ctx, nfs, 2049)
 	}
 
 	if errors > 0 {

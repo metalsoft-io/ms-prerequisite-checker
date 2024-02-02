@@ -23,6 +23,7 @@ func checkSiteServerManagement(ctx context.Context, endCh chan<- string, app *ap
 
 	if serverVendor == "dell" {
 		// Dell iDRAC VNC - TCP port 5900
+		// TODO: Open the VNC port before performing the test
 		errors += app.testHTTPConnection(ctx, bmcIP, 5900)
 	}
 

@@ -8,7 +8,7 @@ import (
 func checkSiteSwitchManagement(ctx context.Context, endCh chan<- string, app *application, args map[string]string) {
 	app.logger.Info().Msgf("Starting Site Controller switch management check with arguments (%v)", args)
 
-	switchVendor := strings.ToLower(args["vendor"])
+	switchNos := strings.ToLower(args["nos"])
 	switchIP := args["management-ip"]
 	username := args["username"]
 	password := args["password"]
@@ -24,7 +24,7 @@ func checkSiteSwitchManagement(ctx context.Context, endCh chan<- string, app *ap
 	// SSH - TCP port 22
 	errors += app.testSSHConnection(ctx, switchIP, 22, username, password)
 
-	if switchVendor == "junos" {
+	if switchNos == "junos" {
 		// NETCONF/SSH - TCP port 830
 		errors += app.testSSHConnection(ctx, switchIP, 830, username, password)
 	}
