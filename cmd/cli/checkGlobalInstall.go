@@ -22,7 +22,9 @@ func checkGlobalInstall(ctx context.Context, endCh chan<- string, app *applicati
 	// https://registry.metalsoft.dev 443 tcp
 	errors += app.testLink(ctx, msRegistry)
 
-	// 1.1.1.1 icmp = Public (1.1.1.1 is just an easy to use IP to check public connectivity on diff ports)
+	// 1.1.1.1 Public ICMP
+	errors += app.testICMPConnection(ctx, "1.1.1.1")
+
 	// 1.1.1.1 Public port - TCP 80
 	errors += app.testLink(ctx, "http://1.1.1.1/")
 

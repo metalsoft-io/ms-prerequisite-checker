@@ -5,12 +5,18 @@ import (
 	"crypto/tls"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
+	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/net/icmp"
+	"golang.org/x/net/ipv4"
 )
 
 func (app *application) testHTTPConnection(ctx context.Context, host string, port int) int {
+	app.logger.Debug().Msgf("Testing HTTP connection to %s:%d", host, port)
+
 	response, err := http.Get("http://" + net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
 		app.logger.Error().Err(err).Msgf("Failed test for HTTP connection to %s:%d", host, port)
@@ -24,6 +30,8 @@ func (app *application) testHTTPConnection(ctx context.Context, host string, por
 }
 
 func (app *application) testHTTPSConnection(ctx context.Context, host string, port int) int {
+	app.logger.Debug().Msgf("Testing HTTPS connection to %s:%d", host, port)
+
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -43,6 +51,8 @@ func (app *application) testHTTPSConnection(ctx context.Context, host string, po
 }
 
 func (app *application) testLink(ctx context.Context, url string) int {
+	app.logger.Debug().Msgf("Testing connection to %s", url)
+
 	response, err := http.Get(url)
 	if err != nil {
 		app.logger.Error().Err(err).Msgf("Failed test for link %s", url)
@@ -56,6 +66,8 @@ func (app *application) testLink(ctx context.Context, url string) int {
 }
 
 func (app *application) testTCPConnection(ctx context.Context, host string, port int) int {
+	app.logger.Debug().Msgf("Testing TCP connection to %s:%d", host, port)
+
 	conn, err := net.Dial("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
 		app.logger.Error().Err(err).Msgf("Failed test for TCP connection to %s:%d", host, port)
@@ -85,6 +97,8 @@ func (app *application) testTCPConnection(ctx context.Context, host string, port
 }
 
 func (app *application) testUDPConnection(ctx context.Context, host string, port int) int {
+	app.logger.Debug().Msgf("Testing UDP connection to %s:%d", host, port)
+
 	conn, err := net.Dial("udp", net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
 		app.logger.Error().Err(err).Msgf("Failed test for UDP connection to %s:%d", host, port)
@@ -114,6 +128,8 @@ func (app *application) testUDPConnection(ctx context.Context, host string, port
 }
 
 func (app *application) testSSHConnection(ctx context.Context, host string, port int, username string, password string) int {
+	app.logger.Debug().Msgf("Testing SSH connection to %s:%d", host, port)
+
 	config := &ssh.ClientConfig{
 		User: username,
 		Auth: []ssh.AuthMethod{
@@ -137,6 +153,70 @@ func (app *application) testSSHConnection(ctx context.Context, host string, port
 	defer session.Close()
 
 	app.logger.Debug().Msgf("Connected to SSH server %s:%d", host, port)
+
+	return 0
+}
+
+func (app *application) testICMPConnection(ctx context.Context, host string) int {
+	app.logger.Debug().Msgf("Testing ICMP connection to %s", host)
+
+	// Listen for ICMP packets
+	conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+	if err != nil {
+		app.logger.Error().Err(err).Msgf("Failed test for ICMP connection to %s", host)
+		return 1
+	}
+	defer conn.Close()
+
+	// Create an ICMP echo request
+	message := icmp.Message{
+		Type: ipv4.ICMPTypeEcho, Code: 0,
+		Body: &icmp.Echo{
+			ID: os.Getpid() & 0xffff, Seq: 1,
+			Data: []byte(""),
+		},
+	}
+
+	// Encode the request
+	b, err := message.Marshal(nil)
+	if err != nil {
+		app.logger.Error().Err(err).Msgf("Failed test for ICMP connection to %s", host)
+		return 1
+	}
+
+	// Send the request
+	if _, err := conn.WriteTo(b, &net.IPAddr{IP: net.ParseIP(host)}); err != nil {
+		app.logger.Error().Err(err).Msgf("Failed test for ICMP connection to %s", host)
+		return 1
+	}
+
+	// Wait for a reply
+	reply := make([]byte, 1500)
+	err = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		app.logger.Error().Err(err).Msgf("Failed test for ICMP connection to %s", host)
+		return 1
+	}
+	n, peer, err := conn.ReadFrom(reply)
+	if err != nil {
+		app.logger.Error().Err(err).Msgf("Failed test for ICMP connection to %s", host)
+		return 1
+	}
+
+	// Parse the reply
+	rm, err := icmp.ParseMessage(ipv4.ICMPTypeEchoReply.Protocol(), reply[:n])
+	if err != nil {
+		app.logger.Error().Err(err).Msgf("Failed test for ICMP connection to %s", host)
+		return 1
+	}
+
+	switch rm.Type {
+	case ipv4.ICMPTypeEchoReply:
+		app.logger.Debug().Msgf("Got ICMP echo reply from %v", peer)
+	default:
+		app.logger.Debug().Msgf("Got ICMP %+v reply from %v - expected echo", rm, peer)
+		return 1
+	}
 
 	return 0
 }
