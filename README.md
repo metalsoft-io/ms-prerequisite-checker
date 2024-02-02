@@ -1,93 +1,107 @@
-# ms-prerequisite-check
+# MetalSoft Prerequisites Check
 
+Stand-alone tool to check access required to install and operate MetalSoft global and site controllers.
 
+Requirements: <https://metalsoft.atlassian.net/browse/MS-4809>
 
-## Getting started
+## Building
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+### TLS Certificate
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+The TLS certificate used for the HTTPS service are embedded in the tool.
+To generate new certificates use the following command:
 
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://git.metalsoft.dev/tools/ms-prerequisite-check.git
-git branch -M main
-git push -uf origin main
+```bash
+cd ./certs/certs
+go run /usr/local/go/src/crypto/tls/generate_cert.go" --rsa-bits=2048 --host=localhost
 ```
 
-## Integrate with your tools
+```bash
+cd .\certs\certs
+go run "C:\Program Files\Go\src\crypto\tls\generate_cert.go" --rsa-bits=2048 --host=localhost
+```
 
-- [ ] [Set up project integrations](https://git.metalsoft.dev/tools/ms-prerequisite-check/-/settings/integrations)
+### Linux
 
-## Collaborate with your team
+```bash
+GOOS='linux' GOARCH='amd64' go build -ldflags "-s -X main.version=6.3.0" -o ./bin/linux_amd64/ms-prerequisite-check ./cmd/cli
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+### Windows PowerShell
 
-## Test and Deploy
+```bash
+$Env:GOOS='windows' ; $Env:GOARCH='amd64' ; go build -ldflags "-s -X main.version=6.3.0" -o ./bin/windows_amd64/ms-prerequisite-check.exe ./cmd/cli
+```
 
-Use the built-in continuous integration in GitLab.
+## Running
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### Startup parameters
 
-***
+| Parameter               | Type   | Environment variable     | Default value          | Description                                  |
+| ----------------------- | ------ | ------------------------ | ---------------------- | -------------------------------------------- |
+| -log-level              | string | LOG_LEVEL                | info                   | Log level: trace,debug,info,warn,error,fatal |
 
-# Editing this README
+## Examples
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### Prerequisites for installing the global controller
 
-## Suggestions for a good README
+```bash
+ms-prerequisite-check global-install k8s-repo=https://repo.metalsoft.io
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Optional arguments:
 
-## Name
-Choose a self-explaining name for your project.
+* `ms-repo` - URL of the repo with MetalSoft images (default to `http://repo.metalsoft.io`)
+* `ms-repo-secure` - Secure URL of the repo with MetalSoft images (default to `https://repo.metalsoft.io`)
+* `ms-registry` - URL of the MetalSoft registry (defaults to `https://registry.metalsoft.dev`)
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+### Prerequisites for running the global controller
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```bash
+ms-prerequisite-check global-operate
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### Prerequisites for installing the site controller
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```bash
+ms-prerequisite-check site-install
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### Prerequisites for running the site controller
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+Run the mock services on the global controller node.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+```bash
+ms-prerequisite-check global-service
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+Optional arguments:
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+* `listen-ip` - IP address on which to listen for incoming requests
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Test the connectivity by running the tool on the site controller node.
+The `global-controller-hostname` argument points to the global controller node.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```bash
+ms-prerequisite-check site-operate global-controller-hostname=metal.acme.com
+```
 
-## License
-For open source projects, say how it is licensed.
+Optional arguments:
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+* `nfs-server` - points to the NFS server for the site controller storage
+
+### Test connectivity to managed switch
+
+```bash
+ms-prerequisite-check site-manage-switch nos=SONiC management-ip=1.2.3.4 username=admin password=secret
+```
+
+### Test connectivity to managed server
+
+```bash
+ms-prerequisite-check site-manage-server vendor=Dell bmc-ip=1.2.3.4 username=root password=calvin
+```
+
+Optional arguments:
+
+* `iso-link` - location of an ISO image to test mounting virtual media

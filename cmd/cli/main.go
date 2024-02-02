@@ -1,0 +1,169 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"os/signal"
+	"strings"
+	"sync"
+	"syscall"
+
+	"github.com/joho/godotenv"
+	"github.com/rs/zerolog"
+	"metalsoft.io/prerequisite-check/pkg/env"
+)
+
+var version string
+
+type runtimeConfiguration struct {
+	logLevel string
+	cmd      string
+	args     map[string]string
+}
+
+type application struct {
+	wg     sync.WaitGroup
+	logger *zerolog.Logger
+}
+
+func main() {
+	config := processArguments()
+
+	zerolog.SetGlobalLevel(env.ParseLogLevel(config.logLevel))
+	logger := zerolog.New(os.Stdout).With().
+		Timestamp().
+		Logger()
+
+	app := &application{
+		logger: &logger,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Channel for handler to send end message
+	endCh := make(chan string, 3)
+	go func() {
+		endMessage := <-endCh
+		logger.Info().Msg(endMessage)
+		cancel()
+	}()
+
+	// Call handler for command
+	if handler, ok := commands[config.cmd]; ok {
+		handler.handler(ctx, endCh, app, config.args)
+	} else {
+		logger.Error().Msgf("Command %s not found", config.cmd)
+		endCh <- "Command not found"
+	}
+
+	// Listen for interruptCh signal
+	interruptCh := make(chan os.Signal, 1)
+	signal.Notify(interruptCh, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	// Wait for interrupt signal or end message from handler
+	select {
+	case <-ctx.Done():
+	case <-interruptCh:
+		logger.Info().Msg("Stopping all services...")
+		cancel()
+	}
+
+	// Wait for all goroutines to finish
+	app.wg.Wait()
+}
+
+func processArguments() (conf runtimeConfiguration) {
+	godotenv.Load()
+	conf.logLevel = env.GetString("LOG_LEVEL", "INFO")
+
+	flag.Usage = func() {
+		fmt.Printf("Usage: %s [flags] command [arguments]\n", os.Args[0])
+		fmt.Print("\ncommand:\n")
+		for cmd, properties := range commands {
+			arguments := ""
+			argumentsHelp := ""
+			for cmdArgName, argDetails := range properties.arguments {
+				arguments += fmt.Sprintf(" <%s>", cmdArgName)
+				argumentsHelp += fmt.Sprintf("        %s: ", cmdArgName)
+				if argDetails.required {
+					argumentsHelp += "(required) "
+				}
+				argumentsHelp += argDetails.description
+				if argDetails.defaultValue != "" {
+					argumentsHelp += fmt.Sprintf(" [default: %s]", argDetails.defaultValue)
+				}
+				argumentsHelp += "\n"
+			}
+			fmt.Printf("  %s%s\n      %s\n%s", cmd, arguments, properties.description, argumentsHelp)
+		}
+
+		fmt.Print("\nflags:\n")
+		flag.VisitAll(func(f *flag.Flag) {
+			fmt.Printf("  -%s\n      %v\n", f.Name, f.Usage)
+		})
+	}
+
+	flag.StringVar(&conf.logLevel, "log-level", conf.logLevel, "Sets log level - overrides LOG_LEVEL environment variable (default 'INFO')")
+
+	displayVersion := flag.Bool("version", false, "Display version and exit")
+
+	flag.Parse()
+
+	if *displayVersion {
+		fmt.Printf("Version:\t%s\n", version)
+		os.Exit(0)
+	}
+
+	if flag.NArg() < 1 {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	conf.cmd = strings.ToLower(flag.Arg(0))
+	conf.args = make(map[string]string)
+
+	if _, ok := commands[conf.cmd]; !ok {
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	if len(conf.args) > len(commands[conf.cmd].arguments) {
+		fmt.Print("Too many arguments\n\n")
+		flag.Usage()
+		os.Exit(1)
+	}
+
+	for _, cmdArg := range flag.Args()[1:] {
+		if !strings.Contains(cmdArg, "=") {
+			flag.Usage()
+			os.Exit(1)
+		}
+		argParts := strings.Split(cmdArg, "=")
+		argName := strings.ToLower(argParts[0])
+		argValue := argParts[1]
+
+		if _, ok := commands[conf.cmd].arguments[argName]; !ok {
+			fmt.Printf("Unknown argument: %s\n\n", argName)
+			flag.Usage()
+			os.Exit(1)
+		}
+
+		conf.args[argName] = argValue
+	}
+
+	for cmdArgName, argDetails := range commands[conf.cmd].arguments {
+		_, ok := conf.args[cmdArgName]
+		if !ok && argDetails.required {
+			fmt.Printf("Missing required argument: %s\n\n", cmdArgName)
+			flag.Usage()
+			os.Exit(1)
+		}
+		if !ok && argDetails.defaultValue != "" {
+			conf.args[cmdArgName] = argDetails.defaultValue
+		}
+	}
+
+	return conf
+}
