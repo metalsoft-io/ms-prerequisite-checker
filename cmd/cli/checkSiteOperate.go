@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 )
 
 func checkSiteOperate(ctx context.Context, endCh chan<- string, app *application, args map[string]string) {
-	app.logger.Info().Msgf("Starting Site Controller operation check with arguments (%v)", args)
+	slog.Info("Starting Site Controller operation check", "arguments", args)
 
 	globalControllerHostname := args["global-controller-hostname"]
 
@@ -35,7 +37,9 @@ func checkSiteOperate(ctx context.Context, endCh chan<- string, app *application
 	}
 
 	if errors > 0 {
-		app.logger.Error().Msgf("The Site Operation test detected %d problems", errors)
+		slog.Error(fmt.Sprintf("Site Operation test detected %d problems", errors))
+	} else {
+		slog.Info("Site Operation test detected no problems")
 	}
 
 	endCh <- "Site Controller operation check completed"

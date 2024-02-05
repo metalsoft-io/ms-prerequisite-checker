@@ -4,15 +4,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
-
-	"github.com/joho/godotenv"
-	"github.com/rs/zerolog"
-	"metalsoft.io/prerequisite-check/pkg/env"
 )
 
 var version string
@@ -24,21 +21,17 @@ type runtimeConfiguration struct {
 }
 
 type application struct {
-	wg     sync.WaitGroup
-	logger *zerolog.Logger
+	wg sync.WaitGroup
 }
 
 func main() {
 	config := processArguments()
 
-	zerolog.SetGlobalLevel(env.ParseLogLevel(config.logLevel))
-	logger := zerolog.New(os.Stdout).With().
-		Timestamp().
-		Logger()
+	logHandler := NewLogHandler(os.Stdout, slog.HandlerOptions{Level: parseLogLevel(config.logLevel)})
+	defaultLogger := slog.New(logHandler)
+	slog.SetDefault(defaultLogger)
 
-	app := &application{
-		logger: &logger,
-	}
+	app := &application{}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -46,7 +39,7 @@ func main() {
 	endCh := make(chan string, 3)
 	go func() {
 		endMessage := <-endCh
-		logger.Info().Msg(endMessage)
+		slog.Info(endMessage)
 		cancel()
 	}()
 
@@ -54,7 +47,7 @@ func main() {
 	if handler, ok := commands[config.cmd]; ok {
 		handler.handler(ctx, endCh, app, config.args)
 	} else {
-		logger.Error().Msgf("Command %s not found", config.cmd)
+		slog.Error(fmt.Sprintf("Command %s not found", config.cmd))
 		endCh <- "Command not found"
 	}
 
@@ -66,7 +59,7 @@ func main() {
 	select {
 	case <-ctx.Done():
 	case <-interruptCh:
-		logger.Info().Msg("Stopping all services...")
+		slog.Info("Stopping all services...")
 		cancel()
 	}
 
@@ -75,17 +68,14 @@ func main() {
 }
 
 func processArguments() (conf runtimeConfiguration) {
-	godotenv.Load()
-	conf.logLevel = env.GetString("LOG_LEVEL", "INFO")
-
 	flag.Usage = func() {
-		fmt.Printf("Usage: %s [flags] command [arguments]\n", os.Args[0])
+		fmt.Printf("Usage: %s [flags] command [arg-name=arg-value...]\n", os.Args[0])
 		fmt.Print("\ncommand:\n")
 		for cmd, properties := range commands {
 			arguments := ""
 			argumentsHelp := ""
 			for cmdArgName, argDetails := range properties.arguments {
-				arguments += fmt.Sprintf(" <%s>", cmdArgName)
+				arguments += fmt.Sprintf(" %s=<%s>", cmdArgName, cmdArgName)
 				argumentsHelp += fmt.Sprintf("        %s: ", cmdArgName)
 				if argDetails.required {
 					argumentsHelp += "(required) "
@@ -105,7 +95,7 @@ func processArguments() (conf runtimeConfiguration) {
 		})
 	}
 
-	flag.StringVar(&conf.logLevel, "log-level", conf.logLevel, "Sets log level - overrides LOG_LEVEL environment variable (default 'INFO')")
+	flag.StringVar(&conf.logLevel, "log-level", "INFO", "Sets log level (default 'INFO')")
 
 	displayVersion := flag.Bool("version", false, "Display version and exit")
 

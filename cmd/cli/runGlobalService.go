@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"net/netip"
 )
 
 func runGlobalService(ctx context.Context, endCh chan<- string, app *application, args map[string]string) {
-	app.logger.Info().Msgf("Starting Global Controller mock service with arguments (%v)", args)
+	slog.Info("Starting Global Controller mock service", "arguments", args)
 
 	var listenIP netip.Addr
 	strListenIP, ok := args["listen-ip"]
@@ -16,7 +18,7 @@ func runGlobalService(ctx context.Context, endCh chan<- string, app *application
 		var err error
 		listenIP, err = netip.ParseAddr(strListenIP)
 		if err != nil {
-			app.logger.Error().Err(err).Msgf("Failed to parse listen-ip argument (%s)", strListenIP)
+			slog.Error(fmt.Sprintf("Failed to parse listen-ip argument (%s): %s", strListenIP, err.Error()))
 			endCh <- "Global Controller mock service failed"
 			return
 		}
@@ -24,35 +26,35 @@ func runGlobalService(ctx context.Context, endCh chan<- string, app *application
 
 	// web: TCP port 80
 	app.wg.Add(1)
-	go app.startHTTPServer(ctx, 80)
+	go app.startHTTPServer(ctx, listenIP, 80)
 
 	// websecure: TCP port 443
 	app.wg.Add(1)
-	go app.startHTTPSServer(ctx, 443)
+	go app.startHTTPSServer(ctx, listenIP, 443)
 
 	// eventservice: TCP port 9003
 	app.wg.Add(1)
-	go app.startTCPServer(ctx, 9003)
+	go app.startTCPServer(ctx, listenIP, 9003)
 
 	// gateway-api: TCP port 9009
 	app.wg.Add(1)
-	go app.startTCPServer(ctx, 9009)
+	go app.startTCPServer(ctx, listenIP, 9009)
 
 	// ws-tunnel-9010: TCP port 9010
 	app.wg.Add(1)
-	go app.startTCPServer(ctx, 9010)
+	go app.startTCPServer(ctx, listenIP, 9010)
 
 	// ws-tunnel-9011: TCP port 9011
 	app.wg.Add(1)
-	go app.startTCPServer(ctx, 9011)
+	go app.startTCPServer(ctx, listenIP, 9011)
 
 	// ws-tunnel-9090: TCP port 9090
 	app.wg.Add(1)
-	go app.startTCPServer(ctx, 9090)
+	go app.startTCPServer(ctx, listenIP, 9090)
 
 	// ws-tunnel-9091: TCP port 9091
 	app.wg.Add(1)
-	go app.startTCPServer(ctx, 9091)
+	go app.startTCPServer(ctx, listenIP, 9091)
 
 	// powerdns: UDP port 53
 	app.wg.Add(1)

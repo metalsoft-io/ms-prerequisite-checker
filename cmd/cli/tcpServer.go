@@ -3,21 +3,23 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
+	"net/netip"
 	"strings"
 	"time"
 )
 
-func (app *application) startTCPServer(ctx context.Context, port int) {
+func (app *application) startTCPServer(ctx context.Context, ip netip.Addr, port uint16) {
 	defer app.wg.Done()
 
-	address := fmt.Sprintf(":%d", port)
+	address := netip.AddrPortFrom(ip, port).String()
 
-	app.logger.Info().Str("address", address).Msg("Starting TCP server")
+	slog.Info(fmt.Sprintf("Starting TCP server on port %s", address))
 
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
-		app.logger.Error().Err(err).Str("address", address).Msg("Error starting TCP server")
+		slog.Error(fmt.Sprintf("Error starting TCP server on %s - %s", address, err.Error()))
 		return
 	}
 	defer ln.Close()
@@ -25,10 +27,10 @@ func (app *application) startTCPServer(ctx context.Context, port int) {
 	go func() {
 		<-ctx.Done()
 
-		app.logger.Info().Str("address", address).Msg("Shutting down TCP server")
+		slog.Info(fmt.Sprintf("Shutting down TCP server on %s", address))
 
 		if err := ln.Close(); err != nil {
-			app.logger.Error().Err(err).Str("address", address).Msg("Error shutting down TCP server")
+			slog.Error(fmt.Sprintf("Error shutting down TCP server on %s - %s", address, err.Error()))
 		}
 	}()
 
@@ -36,10 +38,10 @@ func (app *application) startTCPServer(ctx context.Context, port int) {
 		conn, err := ln.Accept()
 		if err != nil {
 			if strings.Contains(err.Error(), "use of closed network connection") {
-				app.logger.Info().Str("address", address).Msg("TCP server shut down")
+				slog.Info(fmt.Sprintf("TCP server on %s shut down", address))
 				return
 			}
-			app.logger.Error().Err(err).Str("address", address).Msg("Could not accept TCP connection")
+			slog.Error(fmt.Sprintf("Could not accept TCP connection on %s - %s", address, err.Error()))
 			time.Sleep(5 * time.Second)
 			continue
 		}
@@ -49,24 +51,24 @@ func (app *application) startTCPServer(ctx context.Context, port int) {
 
 func (app *application) tcpConnectionHandler(ctx context.Context, socket net.Conn) {
 	defer socket.Close()
-	app.logger.Info().Msgf("Processing TCP connection from %s", socket.RemoteAddr())
+	slog.Debug(fmt.Sprintf("Processing TCP connection from %s", socket.RemoteAddr()))
 
 	socket.SetReadDeadline(time.Now().Add(5 * time.Second))
 
 	data := make([]byte, 1024)
 	bytesRead, err := socket.Read(data)
 	if err != nil {
-		app.logger.Error().Err(err).Msg("Error reading from TCP connection")
+		slog.Error(fmt.Sprintf("Error reading from TCP connection - %s", err.Error()))
 		return
 	}
 
-	app.logger.Info().Msgf("Data received from TCP connection: %s", string(data[:bytesRead]))
+	slog.Debug(fmt.Sprintf("Data received from TCP connection: %s", string(data[:bytesRead])))
 
 	bytesWritten, err := socket.Write([]byte("PONG"))
 	if err != nil {
-		app.logger.Error().Err(err).Msg("Error writing to TCP connection")
+		slog.Error(fmt.Sprintf("Error writing to TCP connection - %s", err.Error()))
 		return
 	}
 
-	app.logger.Info().Msgf("Data written to TCP connection: %d bytes", bytesWritten)
+	slog.Debug(fmt.Sprintf("Data written to TCP connection: %d bytes", bytesWritten))
 }

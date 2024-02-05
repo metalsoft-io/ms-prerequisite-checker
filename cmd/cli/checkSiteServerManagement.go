@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"strings"
 )
 
 func checkSiteServerManagement(ctx context.Context, endCh chan<- string, app *application, args map[string]string) {
-	app.logger.Info().Msgf("Starting Site Controller server management check with arguments (%v)", args)
+	slog.Info("Starting Site Controller server management check", "arguments", args)
 
 	serverVendor := strings.ToLower(args["vendor"])
 	bmcIP := args["bmc-ip"]
@@ -31,7 +33,9 @@ func checkSiteServerManagement(ctx context.Context, endCh chan<- string, app *ap
 	errors += app.testUDPConnection(ctx, bmcIP, 623)
 
 	if errors > 0 {
-		app.logger.Error().Msgf("The Site Controller server management check detected %d problems", errors)
+		slog.Error(fmt.Sprintf("Site Controller server management check detected %d problems", errors))
+	} else {
+		slog.Info("Site Controller server management check detected no problems")
 	}
 
 	endCh <- "Site Controller server management check completed"

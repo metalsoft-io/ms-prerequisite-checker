@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"strings"
 )
 
 func checkSiteSwitchManagement(ctx context.Context, endCh chan<- string, app *application, args map[string]string) {
-	app.logger.Info().Msgf("Starting Site Controller switch management check with arguments (%v)", args)
+	slog.Info("Starting Site Controller switch management check", "arguments", args)
 
 	switchNos := strings.ToLower(args["nos"])
 	switchIP := args["management-ip"]
@@ -30,7 +32,9 @@ func checkSiteSwitchManagement(ctx context.Context, endCh chan<- string, app *ap
 	}
 
 	if errors > 0 {
-		app.logger.Error().Msgf("The Site Controller switch management check detected %d problems", errors)
+		slog.Error(fmt.Sprintf("Site Controller switch management check detected %d problems", errors))
+	} else {
+		slog.Info("Site Controller switch management check detected no problems")
 	}
 
 	endCh <- "Site Controller switch management check completed"

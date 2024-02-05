@@ -171,9 +171,9 @@ $Env:GOOS='windows' ; $Env:GOARCH='amd64' ; go build -ldflags "-s -X main.versio
 
 ### Startup parameters
 
-| Parameter               | Type   | Environment variable     | Default value          | Description                                  |
-| ----------------------- | ------ | ------------------------ | ---------------------- | -------------------------------------------- |
-| -log-level              | string | LOG_LEVEL                | info                   | Log level: trace,debug,info,warn,error,fatal |
+| Parameter               | Type   | Default value          | Description                      |
+| ----------------------- | ------ | ---------------------- | -------------------------------- |
+| -log-level              | string | info                   | Log level: debug,info,warn,error |
 
 ## Examples
 

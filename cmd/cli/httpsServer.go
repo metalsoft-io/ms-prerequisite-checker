@@ -5,15 +5,18 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"metalsoft.io/prerequisite-check/certs"
 )
 
-func (app *application) startHTTPSServer(ctx context.Context, port int) {
+func (app *application) startHTTPSServer(ctx context.Context, ip netip.Addr, port uint16) {
 	defer app.wg.Done()
+
+	address := netip.AddrPortFrom(ip, port).String()
 
 	var err error
 
@@ -24,17 +27,17 @@ func (app *application) startHTTPSServer(ctx context.Context, port int) {
 	}
 	certPEMBlock, err := certs.GetCert("cert.pem")
 	if err != nil {
-		app.logger.Error().Err(err).Msg("Error loading TLS certificate")
+		slog.Error("Error loading TLS certificate", err)
 		return
 	}
 	keyPEMBlock, err := certs.GetCert("key.pem")
 	if err != nil {
-		app.logger.Error().Err(err).Msg("Error loading TLS key")
+		slog.Error("Error loading TLS key", err)
 		return
 	}
 	tlsConfig.Certificates[0], err = tls.X509KeyPair(certPEMBlock, keyPEMBlock)
 	if err != nil {
-		app.logger.Error().Err(err).Msg("Error loading TLS certificate and key")
+		slog.Error("Error loading TLS certificate and key", err)
 		return
 	}
 
@@ -42,7 +45,6 @@ func (app *application) startHTTPSServer(ctx context.Context, port int) {
 		Addr:         fmt.Sprintf(":%d", port),
 		Handler:      http.HandlerFunc(app.httpsRequestHandler),
 		TLSConfig:    tlsConfig,
-		ErrorLog:     log.New(app.logger, "", 0),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -53,25 +55,25 @@ func (app *application) startHTTPSServer(ctx context.Context, port int) {
 		ctxShutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		app.logger.Info().Str("address", srv.Addr).Msg("Shutting down HTTPS server")
+		slog.Info(fmt.Sprintf("Shutting down HTTPS server on %s", address))
 
 		if err := srv.Shutdown(ctxShutdown); err != nil {
-			app.logger.Error().Err(err).Str("address", srv.Addr).Msg("Error shutting down HTTPS server")
+			slog.Error(fmt.Sprintf("Error shutting down HTTPS server on %s - %s", address, err.Error()))
 		}
 	}()
 
-	app.logger.Info().Str("address", srv.Addr).Msg("Starting HTTPS server")
+	slog.Info(fmt.Sprintf("Starting HTTPS server on %s", address))
 
 	err = srv.ListenAndServeTLS("", "")
 	if !errors.Is(err, http.ErrServerClosed) {
-		app.logger.Error().Err(err).Str("address", srv.Addr).Msg("Error starting HTTPS server")
+		slog.Error(fmt.Sprintf("Error starting HTTPS server on %s - %s", address, err.Error()))
 	}
 
-	app.logger.Info().Str("address", srv.Addr).Msg("HTTPS server shut down")
+	slog.Info(fmt.Sprintf("HTTPS server on %s shut down", address))
 }
 
 func (app *application) httpsRequestHandler(w http.ResponseWriter, r *http.Request) {
-	app.logger.Info().Str("host", r.Host).Str("remote", r.RemoteAddr).Str("method", r.Method).Str("path", r.URL.Path).Msg("HTTPS request received")
+	slog.Debug(fmt.Sprintf("HTTPS request received from %s: %s %s%s", r.RemoteAddr, r.Method, r.Host, r.URL.Path))
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))

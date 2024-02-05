@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 )
 
 func checkGlobalInstall(ctx context.Context, endCh chan<- string, app *application, args map[string]string) {
-	app.logger.Info().Msgf("Starting Global Controller installation check with arguments (%v)", args)
+	slog.Info("Starting Global Controller installation check", "arguments", args)
 
 	msRepo := args["ms-repo"]
 	msRepoSecure := args["ms-repo-secure"]
@@ -58,7 +60,9 @@ func checkGlobalInstall(ctx context.Context, endCh chan<- string, app *applicati
 	// http://archive.ubuntu.com , http://security.ubuntu.com  80 tcp -> for base OS package updates
 
 	if errors > 0 {
-		app.logger.Error().Msgf("The Global Controller installation check detected %d problems", errors)
+		slog.Error(fmt.Sprintf("Global Controller installation check detected %d problems", errors))
+	} else {
+		slog.Info("The Global Controller installation check detected no problems")
 	}
 
 	endCh <- "Global Controller installation check completed"

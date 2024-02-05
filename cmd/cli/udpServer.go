@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/netip"
 	"strings"
@@ -12,13 +13,13 @@ import (
 func (app *application) startUDPServer(ctx context.Context, ip netip.Addr, port uint16) {
 	defer app.wg.Done()
 
-	address := fmt.Sprintf(":%d", port)
+	address := netip.AddrPortFrom(ip, port).String()
 
-	app.logger.Info().Str("address", address).Msg("Starting UDP server")
+	slog.Info(fmt.Sprintf("Starting UDP server on port %s", address))
 
 	ln, err := net.ListenPacket("udp", net.UDPAddrFromAddrPort(netip.AddrPortFrom(ip, port)).String())
 	if err != nil {
-		app.logger.Error().Err(err).Str("address", address).Msg("Error starting UDP server")
+		slog.Error(fmt.Sprintf("Error starting UDP server on %s - %s", address, err.Error()))
 		return
 	}
 	defer ln.Close()
@@ -26,10 +27,10 @@ func (app *application) startUDPServer(ctx context.Context, ip netip.Addr, port 
 	go func() {
 		<-ctx.Done()
 
-		app.logger.Info().Str("address", address).Msg("Shutting down UDP server")
+		slog.Info(fmt.Sprintf("Shutting down UDP server on %s", address))
 
 		if err := ln.Close(); err != nil {
-			app.logger.Error().Err(err).Str("address", address).Msg("Error shutting down UDP server")
+			slog.Error(fmt.Sprintf("Error shutting down UDP server on %s - %s", address, err.Error()))
 		}
 	}()
 
@@ -39,22 +40,22 @@ func (app *application) startUDPServer(ctx context.Context, ip netip.Addr, port 
 		bytesRead, conn, err := ln.ReadFrom(buffer)
 		if err != nil {
 			if strings.Contains(err.Error(), "use of closed network connection") {
-				app.logger.Info().Str("address", address).Msg("UDP server shut down")
+				slog.Info(fmt.Sprintf("UDP server on %s shut down", address))
 				return
 			}
-			app.logger.Error().Err(err).Str("address", address).Msg("Could not read UDP packet")
+			slog.Error(fmt.Sprintf("Could not read UDP packet on %s - %s", address, err.Error()))
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		app.logger.Info().Msgf("Data received with UDP packet: %s", string(buffer[:bytesRead]))
+		slog.Debug(fmt.Sprintf("Data received with UDP packet: %s", string(buffer[:bytesRead])))
 
 		_, err = ln.WriteTo([]byte("PONG"), conn)
 		if err != nil {
-			app.logger.Error().Err(err).Str("address", address).Msg("Error writing UDP packet")
+			slog.Error(fmt.Sprintf("Error writing UDP packet on %s - %s", address, err.Error()))
 			continue
 		}
 
-		app.logger.Info().Msg("Wrote UDP packet: PONG")
+		slog.Debug("Wrote UDP packet: PONG")
 	}
 }

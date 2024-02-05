@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 )
 
 func checkGlobalOperate(ctx context.Context, endCh chan<- string, app *application, args map[string]string) {
-	app.logger.Info().Msgf("Starting Global Controller operation check with arguments (%v)", args)
+	slog.Info("Starting Global Controller operation check", "arguments", args)
 
 	errors := 0
 
@@ -17,7 +19,9 @@ func checkGlobalOperate(ctx context.Context, endCh chan<- string, app *applicati
 	errors += app.testHTTPSConnection(ctx, "repo.metalsoft.io", 443)
 
 	if errors > 0 {
-		app.logger.Error().Msgf("The Global Controller operation check detected %d problems", errors)
+		slog.Error(fmt.Sprintf("Global Controller operation check detected %d problems", errors))
+	} else {
+		slog.Info("Global Controller operation check detected no problems")
 	}
 
 	endCh <- "Global Controller operation check completed"
