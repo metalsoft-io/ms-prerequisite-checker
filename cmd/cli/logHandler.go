@@ -58,7 +58,7 @@ func (h *LogHandler) Handle(ctx context.Context, r slog.Record) error {
 		attrStr = string(b)
 	}
 
-	timeStr := r.Time.Format("[15:05:05.000]")
+	timeStr := r.Time.Format("[15:04:05.000]")
 
 	h.logger.Println(timeStr, level, color.WhiteString(r.Message), color.WhiteString(attrStr))
 
