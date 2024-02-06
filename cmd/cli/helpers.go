@@ -78,6 +78,11 @@ func (app *application) testTCPConnection(ctx context.Context, host string, port
 	}
 	defer conn.Close()
 
+	err = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed test for TCP connection to %s:%d - %s", host, port, err.Error()))
+		return 1
+	}
 	dataIn := []byte("PING")
 	bytesWritten, err := conn.Write(dataIn)
 	if err != nil {
@@ -87,6 +92,11 @@ func (app *application) testTCPConnection(ctx context.Context, host string, port
 
 	slog.Debug(fmt.Sprintf("Wrote %d bytes to TCP %s:%d - %s", bytesWritten, host, port, string(dataIn)))
 
+	err = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed test for TCP connection to %s:%d - %s", host, port, err.Error()))
+		return 1
+	}
 	dataOut := make([]byte, 1024)
 	bytesRead, err := conn.Read(dataOut)
 	if err != nil {
