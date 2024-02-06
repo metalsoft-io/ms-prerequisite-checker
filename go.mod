@@ -4,6 +4,7 @@ go 1.21.5
 
 require (
 	github.com/fatih/color v1.16.0
+	github.com/go-resty/resty/v2 v2.11.0
 	golang.org/x/crypto v0.18.0
 	golang.org/x/net v0.20.0
 )

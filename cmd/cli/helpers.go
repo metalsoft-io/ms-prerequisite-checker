@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-resty/resty/v2"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
@@ -89,8 +90,8 @@ func (app *application) testTCPConnection(ctx context.Context, host string, port
 	dataOut := make([]byte, 1024)
 	bytesRead, err := conn.Read(dataOut)
 	if err != nil {
-		slog.Error(fmt.Sprintf("Failed test for TCP connection to %s:%d - %s", host, port, err.Error()))
-		return 1
+		slog.Warn(fmt.Sprintf("Could not read from TCP connection to %s:%d - %s", host, port, err.Error()))
+		return 0
 	}
 
 	slog.Debug(fmt.Sprintf("Read %d bytes from TCP %s:%d - %s", bytesRead, host, port, string(dataOut[:bytesRead])))
@@ -130,8 +131,8 @@ func (app *application) testUDPConnection(ctx context.Context, host string, port
 	}
 	bytesRead, err := conn.Read(dataOut)
 	if err != nil {
-		slog.Error(fmt.Sprintf("Failed test for UDP connection to %s:%d - %s", host, port, err.Error()))
-		return 1
+		slog.Warn(fmt.Sprintf("Could not read from UDP connection to %s:%d - %s", host, port, err.Error()))
+		return 0
 	}
 
 	slog.Debug(fmt.Sprintf("Read %d bytes from UDP %s:%d - %s", bytesRead, host, port, string(dataOut[:bytesRead])))
@@ -139,13 +140,26 @@ func (app *application) testUDPConnection(ctx context.Context, host string, port
 	return 0
 }
 
+var sshPassword string
+
+func sshInteractive(user, instruction string, questions []string, echos []bool) (answers []string, err error) {
+	answers = make([]string, len(questions))
+	for n, _ := range questions {
+		answers[n] = sshPassword
+	}
+
+	return answers, nil
+}
+
 func (app *application) testSSHConnection(ctx context.Context, host string, port int, username string, password string) int {
 	slog.Debug(fmt.Sprintf("Testing SSH connection to %s:%d", host, port))
+
+	sshPassword = password
 
 	config := &ssh.ClientConfig{
 		User: username,
 		Auth: []ssh.AuthMethod{
-			ssh.Password(password),
+			ssh.KeyboardInteractive(sshInteractive),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
@@ -236,4 +250,28 @@ func (app *application) testICMPConnection(ctx context.Context, host string) int
 	}
 
 	return 0
+}
+
+func (app *application) testRedfishAPI(ctx context.Context, hostname string, port int, username string, password string, uri string) (string, error) {
+	link := "https://" + hostname + ":" + strconv.Itoa(port) + uri
+	slog.Debug(fmt.Sprintf("Testing Redfish resource %s", link))
+
+	client := resty.New().SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	response, err := client.R().
+		SetContext(ctx).
+		SetBasicAuth(username, password).
+		Get(link)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed test for Redfish link  %s - %s", link, err.Error()))
+		return "", err
+	}
+
+	if response.StatusCode() != http.StatusOK {
+		slog.Error(fmt.Sprintf("Failed test for Redfish link  %s - response status %s", link, response.Status()))
+		return "", fmt.Errorf("response status %s", response.Status())
+	}
+
+	slog.Debug(fmt.Sprintf("Got Redfish response for %s - %s", link, response.Status()))
+
+	return response.String(), nil
 }

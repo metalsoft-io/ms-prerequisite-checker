@@ -33,7 +33,7 @@ func (h *LogHandler) Handle(ctx context.Context, r slog.Record) error {
 	level := r.Level.String()
 	switch r.Level {
 	case slog.LevelDebug:
-		level = color.MagentaString(level)
+		level = color.GreenString(level)
 	case slog.LevelInfo:
 		level = color.BlueString(level)
 	case slog.LevelWarn:
