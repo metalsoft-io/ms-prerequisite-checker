@@ -135,7 +135,7 @@ Checks the following:
 
 * Redfish - HTTPS connection to `bmc-ip` on port 443
 * SSH - SSH connection to `bmc-ip` on port 22 using the provided `username` and `password`
-* VNC - HTTP connection to `bmc-ip` on port 5900 - performed when the `vendor` is "Dell"
+* VNC - HTTP connection to `bmc-ip` on port 5901 - performed when the `vendor` is "Dell"
 * IPMI - UDP connection to `bmc-ip` on port 623
 
 ## Building
@@ -158,13 +158,13 @@ go run "C:\Program Files\Go\src\crypto\tls\generate_cert.go" --rsa-bits=2048 --h
 ### Linux
 
 ```bash
-GOOS='linux' GOARCH='amd64' go build -ldflags "-s -X main.version=6.3.0" -o ./bin/linux_amd64/ms-prerequisite-check ./cmd/cli
+GOOS='linux' GOARCH='amd64' CGO_ENABLED='0' go build -ldflags "-s -X main.version=6.2.0" -o ./bin/linux_amd64/ms-prerequisite-check ./cmd/cli
 ```
 
 ### Windows PowerShell
 
 ```bash
-$Env:GOOS='windows' ; $Env:GOARCH='amd64' ; go build -ldflags "-s -X main.version=6.3.0" -o ./bin/windows_amd64/ms-prerequisite-check.exe ./cmd/cli
+$Env:GOOS='windows' ; $Env:GOARCH='amd64' ; go build -ldflags "-s -X main.version=6.2.0" -o ./bin/windows_amd64/ms-prerequisite-check.exe ./cmd/cli
 ```
 
 ## Running
@@ -180,19 +180,19 @@ $Env:GOOS='windows' ; $Env:GOARCH='amd64' ; go build -ldflags "-s -X main.versio
 ### Prerequisites for installing the global controller
 
 ```bash
-ms-prerequisite-check global-install
+ms-prerequisite-check -log-level=debug global-install
 ```
 
 ### Prerequisites for running the global controller
 
 ```bash
-ms-prerequisite-check global-operate
+ms-prerequisite-check -log-level=debug global-operate
 ```
 
 ### Prerequisites for installing the site controller
 
 ```bash
-ms-prerequisite-check site-install
+ms-prerequisite-check -log-level=debug site-install
 ```
 
 ### Prerequisites for running the site controller
@@ -200,7 +200,7 @@ ms-prerequisite-check site-install
 Run the mock services on the global controller node.
 
 ```bash
-ms-prerequisite-check global-service
+ms-prerequisite-check -log-level=debug global-service
 ```
 
 Optional arguments:
@@ -211,7 +211,7 @@ Test the connectivity by running the tool on the site controller node.
 The `global-controller-hostname` argument points to the global controller node.
 
 ```bash
-ms-prerequisite-check site-operate global-controller-hostname=metal.acme.com
+ms-prerequisite-check -log-level=debug site-operate global-controller-hostname=metal.acme.com
 ```
 
 Optional arguments:
@@ -221,13 +221,13 @@ Optional arguments:
 ### Test connectivity to managed switch
 
 ```bash
-ms-prerequisite-check site-manage-switch nos=SONiC management-ip=1.2.3.4 username=admin password=secret
+ms-prerequisite-check -log-level=debug site-manage-switch nos=SONiC management-ip=1.2.3.4 username=admin password=secret
 ```
 
 ### Test connectivity to managed server
 
 ```bash
-ms-prerequisite-check site-manage-server vendor=Dell bmc-ip=1.2.3.4 username=root password=calvin
+ms-prerequisite-check -log-level=debug site-manage-server vendor=Dell bmc-ip=1.1.1.1 username=root password=calvin
 ```
 
 Optional arguments:

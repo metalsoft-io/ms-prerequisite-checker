@@ -67,8 +67,9 @@ func (h *LogHandler) Handle(ctx context.Context, r slog.Record) error {
 
 func NewLogHandler(
 	out io.Writer,
-	opts slog.HandlerOptions,
+	logLevel string,
 ) *LogHandler {
+	opts := slog.HandlerOptions{Level: parseLogLevel(logLevel)}
 	h := &LogHandler{
 		handler: slog.NewTextHandler(out, &opts),
 		logger:  log.New(out, "", 0),

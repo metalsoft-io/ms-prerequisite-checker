@@ -17,13 +17,18 @@ func checkSiteServerManagement(ctx context.Context, endCh chan<- string, app *ap
 
 	errors := 0
 
-	// Redfish - TCP port, 443
+	// Redfish - TCP port 443
 	errors += app.testHTTPSConnection(ctx, bmcIP, 443)
-	response, err := app.testRedfishAPI(ctx, bmcIP, 443, username, password, "/redfish/v1")
+	result, err := app.testRedfishAPI(ctx, bmcIP, 443, username, password, "/redfish/v1")
 	if err != nil {
 		errors++
 	} else {
-		slog.Debug(fmt.Sprintf("Read %d bytes from Redfish %s:%d - %s", len(response), bmcIP, 443, string(response)))
+		data := result.(map[string]interface{})
+		slog.Debug(fmt.Sprintf("Received Redfish response from %s:%d\n  RedfishVersion: %s\n  Vendor: %s",
+			bmcIP,
+			443,
+			safeConvert(data, "RedfishVersion"),
+			safeConvert(data, "Vendor")))
 	}
 
 	// SSH - TCP port 22
@@ -31,7 +36,6 @@ func checkSiteServerManagement(ctx context.Context, endCh chan<- string, app *ap
 
 	if serverVendor == "dell" {
 		// Dell iDRAC VNC - TCP port 5901
-		// TODO: Open the VNC port before performing the test
 		errors += app.testTCPConnection(ctx, bmcIP, 5901)
 	}
 

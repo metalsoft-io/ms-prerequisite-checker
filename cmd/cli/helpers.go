@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -17,10 +18,15 @@ import (
 	"golang.org/x/net/ipv4"
 )
 
+const TIMEOUT = 10 * time.Second
+
 func (app *application) testHTTPConnection(ctx context.Context, host string, port int) int {
 	slog.Debug(fmt.Sprintf("Testing HTTP connection to %s:%d", host, port))
 
-	response, err := http.Get("http://" + net.JoinHostPort(host, strconv.Itoa(port)))
+	client := &http.Client{}
+	client.Timeout = TIMEOUT
+
+	response, err := client.Get("http://" + net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for HTTP connection to %s:%d - %s", host, port, err.Error()))
 		return 1
@@ -40,6 +46,7 @@ func (app *application) testHTTPSConnection(ctx context.Context, host string, po
 	}
 
 	client := &http.Client{Transport: tr}
+	client.Timeout = TIMEOUT
 
 	response, err := client.Get("https://" + net.JoinHostPort(host, strconv.Itoa(port)))
 	if err != nil {
@@ -56,7 +63,10 @@ func (app *application) testHTTPSConnection(ctx context.Context, host string, po
 func (app *application) testLink(ctx context.Context, url string) int {
 	slog.Debug(fmt.Sprintf("Testing connection to %s", url))
 
-	response, err := http.Get(url)
+	client := &http.Client{}
+	client.Timeout = TIMEOUT
+
+	response, err := client.Get(url)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for link %s - %s", url, err.Error()))
 		return 1
@@ -78,7 +88,7 @@ func (app *application) testTCPConnection(ctx context.Context, host string, port
 	}
 	defer conn.Close()
 
-	err = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	err = conn.SetWriteDeadline(time.Now().Add(TIMEOUT))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for TCP connection to %s:%d - %s", host, port, err.Error()))
 		return 1
@@ -92,7 +102,7 @@ func (app *application) testTCPConnection(ctx context.Context, host string, port
 
 	slog.Debug(fmt.Sprintf("Wrote %d bytes to TCP %s:%d - %s", bytesWritten, host, port, string(dataIn)))
 
-	err = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(TIMEOUT))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for TCP connection to %s:%d - %s", host, port, err.Error()))
 		return 1
@@ -120,7 +130,7 @@ func (app *application) testUDPConnection(ctx context.Context, host string, port
 	defer conn.Close()
 
 	dataIn := []byte("PING")
-	err = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	err = conn.SetWriteDeadline(time.Now().Add(TIMEOUT))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for UDP connection to %s:%d - %s", host, port, err.Error()))
 		return 1
@@ -134,7 +144,7 @@ func (app *application) testUDPConnection(ctx context.Context, host string, port
 	slog.Debug(fmt.Sprintf("Wrote %d bytes to UDP %s:%d - %s", bytesWritten, host, port, string(dataIn)))
 
 	dataOut := make([]byte, 1024)
-	err = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(TIMEOUT))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for UDP connection to %s:%d - %s", host, port, err.Error()))
 		return 1
@@ -172,6 +182,7 @@ func (app *application) testSSHConnection(ctx context.Context, host string, port
 			ssh.KeyboardInteractive(sshInteractive),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         TIMEOUT,
 	}
 
 	client, err := ssh.Dial("tcp", net.JoinHostPort(host, strconv.Itoa(port)), config)
@@ -221,7 +232,7 @@ func (app *application) testICMPConnection(ctx context.Context, host string) int
 	}
 
 	// Send the request
-	err = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	err = conn.SetWriteDeadline(time.Now().Add(TIMEOUT))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for ICMP connection to %s - %s", host, err.Error()))
 		return 1
@@ -233,7 +244,7 @@ func (app *application) testICMPConnection(ctx context.Context, host string) int
 
 	// Wait for a reply
 	reply := make([]byte, 1500)
-	err = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	err = conn.SetReadDeadline(time.Now().Add(TIMEOUT))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for ICMP connection to %s - %s", host, err.Error()))
 		return 1
@@ -262,7 +273,7 @@ func (app *application) testICMPConnection(ctx context.Context, host string) int
 	return 0
 }
 
-func (app *application) testRedfishAPI(ctx context.Context, hostname string, port int, username string, password string, uri string) (string, error) {
+func (app *application) testRedfishAPI(ctx context.Context, hostname string, port int, username string, password string, uri string) (interface{}, error) {
 	link := "https://" + hostname + ":" + strconv.Itoa(port) + uri
 	slog.Debug(fmt.Sprintf("Testing Redfish resource %s", link))
 
@@ -272,16 +283,25 @@ func (app *application) testRedfishAPI(ctx context.Context, hostname string, por
 		SetBasicAuth(username, password).
 		Get(link)
 	if err != nil {
-		slog.Error(fmt.Sprintf("Failed test for Redfish link  %s - %s", link, err.Error()))
-		return "", err
+		slog.Error(fmt.Sprintf("Failed test for Redfish link %s - %s", link, err.Error()))
+		return nil, err
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		slog.Error(fmt.Sprintf("Failed test for Redfish link  %s - response status %s", link, response.Status()))
-		return "", fmt.Errorf("response status %s", response.Status())
+		slog.Error(fmt.Sprintf("Failed test for Redfish link %s - response status %s", link, response.Status()))
+		return nil, fmt.Errorf("response status %s", response.Status())
 	}
 
 	slog.Debug(fmt.Sprintf("Got Redfish response for %s - %s", link, response.Status()))
+	slog.Debug(fmt.Sprintf("Response body:\n%s", string(response.Body())))
 
-	return response.String(), nil
+	// Parse the response JSON
+	var result interface{}
+	err = json.Unmarshal(response.Body(), &result)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Could not parse JSON response - %s", err.Error()))
+		return nil, fmt.Errorf("could not parse response")
+	}
+
+	return result, nil
 }

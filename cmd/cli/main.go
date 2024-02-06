@@ -27,9 +27,7 @@ type application struct {
 func main() {
 	config := processArguments()
 
-	logHandler := NewLogHandler(os.Stdout, slog.HandlerOptions{Level: parseLogLevel(config.logLevel)})
-	defaultLogger := slog.New(logHandler)
-	slog.SetDefault(defaultLogger)
+	slog.SetDefault(slog.New(NewLogHandler(os.Stdout, config.logLevel)))
 
 	app := &application{}
 
