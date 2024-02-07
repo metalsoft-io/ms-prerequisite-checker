@@ -135,8 +135,16 @@ Checks the following:
 
 * Redfish - HTTPS connection to `bmc-ip` on port 443
 * SSH - SSH connection to `bmc-ip` on port 22 using the provided `username` and `password`
-* VNC - HTTP connection to `bmc-ip` on port 5901 - performed when the `vendor` is "Dell"
 * IPMI - UDP connection to `bmc-ip` on port 623
+* VNC - HTTP connection to `bmc-ip` on port 5901 - performed when the `vendor` is "Dell" and the `vnc-password` is provided
+
+### Site Controller inbound connections
+
+To test reachability from the servers and switches to the site controller use the `site-service` command.
+In this mode the tool will listen on the specified IP address (or all interfaces if omitted) for the following inbound requests:
+
+* DHCPv4 on port 53 - will print the summary of the received packet without responding
+  * NOTE: This function is implemented for Linux systems only and requires elevated permissions!
 
 ## Building
 
@@ -233,3 +241,15 @@ ms-prerequisite-check -log-level=debug site-manage-server vendor=Dell bmc-ip=1.1
 Optional arguments:
 
 * `iso-link` - location of an ISO image to test mounting virtual media
+
+### Site controller mock service
+
+Run the mock services on the site controller node.
+
+```bash
+ms-prerequisite-check -log-level=debug site-service
+```
+
+Optional arguments:
+
+* `listen-ip` - IP address on which to listen for incoming requests

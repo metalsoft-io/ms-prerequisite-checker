@@ -40,6 +40,7 @@ func (app *application) startHTTPServer(ctx context.Context, ip netip.Addr, port
 	err := srv.ListenAndServe()
 	if !errors.Is(err, http.ErrServerClosed) {
 		slog.Error(fmt.Sprintf("Error starting HTTP server on %s - %s", address, err.Error()))
+		return
 	}
 
 	slog.Info(fmt.Sprintf("HTTP server on %s shut down", address))

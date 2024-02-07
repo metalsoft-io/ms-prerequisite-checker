@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 )
 
@@ -14,6 +15,13 @@ func checkSiteServerManagement(ctx context.Context, endCh chan<- string, app *ap
 	bmcIP := args["bmc-ip"]
 	username := args["username"]
 	password := args["password"]
+	vncPort, err := strconv.Atoi(args["vnc-port"])
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to parse vnc-port argument (%s): %s", args["vnc-port"], err.Error()))
+		endCh <- "Site Controller server management check failed"
+		return
+	}
+	vncPassword := args["vnc-password"]
 
 	errors := 0
 
@@ -34,13 +42,15 @@ func checkSiteServerManagement(ctx context.Context, endCh chan<- string, app *ap
 	// SSH - TCP port 22
 	errors += app.testSSHConnection(ctx, bmcIP, 22, username, password)
 
-	if serverVendor == "dell" {
+	// IPMI - UDP port 623
+	errors += app.testIPMIConnection(ctx, bmcIP, 623, username, password)
+
+	if serverVendor == "dell" && vncPassword != "" {
 		// Dell iDRAC VNC - TCP port 5901
-		errors += app.testTCPConnection(ctx, bmcIP, 5901)
+		errors += app.testVNCConnection(ctx, bmcIP, vncPort, vncPassword)
 	}
 
-	// IPMI - UDP port 623
-	errors += app.testUDPConnection(ctx, bmcIP, 623)
+	// TODO: Add test for virtual media mounting
 
 	if errors > 0 {
 		slog.Error(fmt.Sprintf("Site Controller server management check detected %d problems", errors))

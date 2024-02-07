@@ -12,7 +12,9 @@ import (
 	"strconv"
 	"time"
 
+	ipmi "github.com/bougou/go-ipmi"
 	"github.com/go-resty/resty/v2"
+	"github.com/mitchellh/go-vnc"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
@@ -164,7 +166,7 @@ var sshPassword string
 
 func sshInteractive(user, instruction string, questions []string, echos []bool) (answers []string, err error) {
 	answers = make([]string, len(questions))
-	for n, _ := range questions {
+	for n := range questions {
 		answers[n] = sshPassword
 	}
 
@@ -215,40 +217,36 @@ func (app *application) testICMPConnection(ctx context.Context, host string) int
 	}
 	defer conn.Close()
 
+	err = conn.SetDeadline(time.Now().Add(TIMEOUT))
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed set deadline for ICMP connection to %s - %s", host, err.Error()))
+		return 1
+	}
+
 	// Create an ICMP echo request
 	message := icmp.Message{
 		Type: ipv4.ICMPTypeEcho, Code: 0,
 		Body: &icmp.Echo{
 			ID: os.Getpid() & 0xffff, Seq: 1,
-			Data: []byte(""),
+			Data: []byte("HELLO-R-U-THERE"),
 		},
 	}
 
 	// Encode the request
-	b, err := message.Marshal(nil)
+	request, err := message.Marshal(nil)
 	if err != nil {
-		slog.Error(fmt.Sprintf("Failed test for ICMP connection to %s - %s", host, err.Error()))
+		slog.Error(fmt.Sprintf("Failed marshal request for ICMP connection to %s - %s", host, err.Error()))
 		return 1
 	}
 
 	// Send the request
-	err = conn.SetWriteDeadline(time.Now().Add(TIMEOUT))
-	if err != nil {
-		slog.Error(fmt.Sprintf("Failed test for ICMP connection to %s - %s", host, err.Error()))
-		return 1
-	}
-	if _, err := conn.WriteTo(b, &net.IPAddr{IP: net.ParseIP(host)}); err != nil {
+	if _, err := conn.WriteTo(request, &net.IPAddr{IP: net.ParseIP(host)}); err != nil {
 		slog.Error(fmt.Sprintf("Failed test for ICMP connection to %s - %s", host, err.Error()))
 		return 1
 	}
 
 	// Wait for a reply
 	reply := make([]byte, 1500)
-	err = conn.SetReadDeadline(time.Now().Add(TIMEOUT))
-	if err != nil {
-		slog.Error(fmt.Sprintf("Failed test for ICMP connection to %s - %s", host, err.Error()))
-		return 1
-	}
 	n, peer, err := conn.ReadFrom(reply)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for ICMP connection to %s - %s", host, err.Error()))
@@ -263,14 +261,16 @@ func (app *application) testICMPConnection(ctx context.Context, host string) int
 	}
 
 	switch rm.Type {
+	case ipv4.ICMPTypeTimeExceeded:
+		slog.Debug(fmt.Sprintf("Got ICMP time exceeded from %v", peer))
+		return 1
 	case ipv4.ICMPTypeEchoReply:
 		slog.Debug(fmt.Sprintf("Got ICMP echo reply from %v", peer))
+		return 0
 	default:
 		slog.Debug(fmt.Sprintf("Got ICMP %+v reply from %v - expected echo", rm, peer))
 		return 1
 	}
-
-	return 0
 }
 
 func (app *application) testRedfishAPI(ctx context.Context, hostname string, port int, username string, password string, uri string) (interface{}, error) {
@@ -293,7 +293,7 @@ func (app *application) testRedfishAPI(ctx context.Context, hostname string, por
 	}
 
 	slog.Debug(fmt.Sprintf("Got Redfish response for %s - %s", link, response.Status()))
-	slog.Debug(fmt.Sprintf("Response body:\n%s", string(response.Body())))
+	//slog.Debug(fmt.Sprintf("Response body:\n%s", string(response.Body())))
 
 	// Parse the response JSON
 	var result interface{}
@@ -304,4 +304,57 @@ func (app *application) testRedfishAPI(ctx context.Context, hostname string, por
 	}
 
 	return result, nil
+}
+
+func (app *application) testIPMIConnection(ctx context.Context, hostname string, port int, username string, password string) int {
+	slog.Debug(fmt.Sprintf("Testing IPMI connection to %s:%d", hostname, port))
+
+	client, err := ipmi.NewClient(hostname, port, username, password)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to create client for IPMI connection to %s:%d - %s", hostname, port, err.Error()))
+		return 1
+	}
+
+	client.Interface = "lanplus"
+
+	if err := client.Connect(); err != nil {
+		slog.Error(fmt.Sprintf("Failed to open IPMI connection to %s:%d - %s", hostname, port, err.Error()))
+		return 1
+	}
+
+	response, err := client.GetSystemGUID()
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed test for IPMI connection to %s:%d - %s", hostname, port, err.Error()))
+		return 1
+	}
+
+	slog.Debug(fmt.Sprintf("Got IPMI response from %s:%d\n%s", hostname, port, response.Format()))
+
+	return 0
+}
+
+func (app *application) testVNCConnection(ctx context.Context, hostname string, port int, password string) int {
+	slog.Debug(fmt.Sprintf("Testing VNC connection to %s:%d", hostname, port))
+
+	conn, err := net.Dial("tcp", net.JoinHostPort(hostname, strconv.Itoa(port)))
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to open VNC connection to %s:%d - %s", hostname, port, err.Error()))
+		return 1
+	}
+	defer conn.Close()
+
+	client, err := vnc.Client(conn, &vnc.ClientConfig{
+		Auth: []vnc.ClientAuth{
+			&vnc.PasswordAuth{Password: password},
+		},
+	})
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to create client for VNC connection to %s:%d - %s", hostname, port, err.Error()))
+		return 1
+	}
+	defer client.Close()
+
+	slog.Debug(fmt.Sprintf("Successfully connected to VNC server %s:%d", hostname, port))
+
+	return 0
 }

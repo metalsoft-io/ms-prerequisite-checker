@@ -44,7 +44,7 @@ var commands = map[string]commandDetails{
 		handler:     checkGlobalOperate,
 	},
 	"global-service": {
-		description: "Runs global controller service.",
+		description: "Runs global controller emulation service.",
 		arguments: map[string]argumentDetails{
 			"listen-ip": {
 				description:  "IP address to listen on.",
@@ -114,11 +114,31 @@ var commands = map[string]commandDetails{
 				description: "Password of the server BMC admin user.",
 				required:    true,
 			},
+			"vnc-port": {
+				description:  "VNC service port.",
+				required:     false,
+				defaultValue: "5901",
+			},
+			"vnc-password": {
+				description: "VNC password.",
+				required:    false,
+			},
 			"iso-link": {
 				description: "Link to an ISO to test mounting virtual media.",
 				required:    false,
 			},
 		},
 		handler: checkSiteServerManagement,
+	},
+	"site-service": {
+		description: "Runs global controller emulation service.",
+		arguments: map[string]argumentDetails{
+			"listen-ip": {
+				description:  "IP address to listen on.",
+				required:     false,
+				defaultValue: "0.0.0.0",
+			},
+		},
+		handler: runSiteService,
 	},
 }

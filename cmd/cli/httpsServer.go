@@ -67,6 +67,7 @@ func (app *application) startHTTPSServer(ctx context.Context, ip netip.Addr, por
 	err = srv.ListenAndServeTLS("", "")
 	if !errors.Is(err, http.ErrServerClosed) {
 		slog.Error(fmt.Sprintf("Error starting HTTPS server on %s - %s", address, err.Error()))
+		return
 	}
 
 	slog.Info(fmt.Sprintf("HTTPS server on %s shut down", address))
