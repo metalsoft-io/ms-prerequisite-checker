@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -14,14 +15,15 @@ import (
 
 var version string
 
+type application struct {
+	wg sync.WaitGroup
+}
+
 type runtimeConfiguration struct {
 	logLevel string
 	cmd      string
 	args     map[string]string
-}
-
-type application struct {
-	wg sync.WaitGroup
+	handler  func(context.Context, chan<- string, *application, map[string]string)
 }
 
 func main() {
@@ -42,12 +44,7 @@ func main() {
 	}()
 
 	// Call handler for command
-	if handler, ok := commands[config.cmd]; ok {
-		handler.handler(ctx, endCh, app, config.args)
-	} else {
-		slog.Error(fmt.Sprintf("Command %s not found", config.cmd))
-		endCh <- "Command not found"
-	}
+	config.handler(ctx, endCh, app, config.args)
 
 	// Listen for interruptCh signal
 	interruptCh := make(chan os.Signal, 1)
@@ -68,13 +65,14 @@ func main() {
 func processArguments() (conf runtimeConfiguration) {
 	flag.Usage = func() {
 		fmt.Printf("Usage: %s [flags] command [arg-name=arg-value...]\n", os.Args[0])
-		fmt.Print("\ncommand:\n")
-		for cmd, properties := range commands {
+		fmt.Print("\nCommands:")
+
+		for _, cmdDetails := range commands {
 			arguments := ""
 			argumentsHelp := ""
-			for cmdArgName, argDetails := range properties.arguments {
-				arguments += fmt.Sprintf(" %s=<%s>", cmdArgName, cmdArgName)
-				argumentsHelp += fmt.Sprintf("        %s: ", cmdArgName)
+			for _, argDetails := range cmdDetails.arguments {
+				arguments += fmt.Sprintf(" %s=<%s>", argDetails.key, argDetails.key)
+				argumentsHelp += fmt.Sprintf("        %s: ", argDetails.key)
 				if argDetails.required {
 					argumentsHelp += "(required) "
 				}
@@ -84,16 +82,16 @@ func processArguments() (conf runtimeConfiguration) {
 				}
 				argumentsHelp += "\n"
 			}
-			fmt.Printf("  %s%s\n      %s\n%s", cmd, arguments, properties.description, argumentsHelp)
+			fmt.Printf("\n  %s%s\n      %s\n%s", cmdDetails.key, arguments, cmdDetails.description, argumentsHelp)
 		}
 
-		fmt.Print("\nflags:\n")
+		fmt.Print("\nFlags:\n")
 		flag.VisitAll(func(f *flag.Flag) {
 			fmt.Printf("  -%s\n      %v\n", f.Name, f.Usage)
 		})
 	}
 
-	flag.StringVar(&conf.logLevel, "log-level", "INFO", "Sets log level (default 'INFO')")
+	flag.StringVar(&conf.logLevel, "log-level", "INFO", "Sets log level [default 'INFO']")
 
 	displayVersion := flag.Bool("version", false, "Display version and exit")
 
@@ -110,14 +108,14 @@ func processArguments() (conf runtimeConfiguration) {
 	}
 
 	conf.cmd = strings.ToLower(flag.Arg(0))
-	conf.args = make(map[string]string)
-
-	if _, ok := commands[conf.cmd]; !ok {
+	cmdIndex := slices.IndexFunc(commands, func(cmd commandDetails) bool { return cmd.key == conf.cmd })
+	if cmdIndex == -1 {
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	if len(conf.args) > len(commands[conf.cmd].arguments) {
+	conf.args = make(map[string]string)
+	if len(conf.args) > len(commands[cmdIndex].arguments) {
 		fmt.Print("Too many arguments\n\n")
 		flag.Usage()
 		os.Exit(1)
@@ -132,7 +130,8 @@ func processArguments() (conf runtimeConfiguration) {
 		argName := strings.ToLower(argParts[0])
 		argValue := argParts[1]
 
-		if _, ok := commands[conf.cmd].arguments[argName]; !ok {
+		argIndex := slices.IndexFunc(commands[cmdIndex].arguments, func(arg argumentDetails) bool { return arg.key == argName })
+		if argIndex == -1 {
 			fmt.Printf("Unknown argument: %s\n\n", argName)
 			flag.Usage()
 			os.Exit(1)
@@ -141,17 +140,19 @@ func processArguments() (conf runtimeConfiguration) {
 		conf.args[argName] = argValue
 	}
 
-	for cmdArgName, argDetails := range commands[conf.cmd].arguments {
-		_, ok := conf.args[cmdArgName]
+	for _, argDetails := range commands[cmdIndex].arguments {
+		_, ok := conf.args[argDetails.key]
 		if !ok && argDetails.required {
-			fmt.Printf("Missing required argument: %s\n\n", cmdArgName)
+			fmt.Printf("Missing required argument: %s\n\n", argDetails.key)
 			flag.Usage()
 			os.Exit(1)
 		}
 		if !ok && argDetails.defaultValue != "" {
-			conf.args[cmdArgName] = argDetails.defaultValue
+			conf.args[argDetails.key] = argDetails.defaultValue
 		}
 	}
+
+	conf.handler = commands[cmdIndex].handler
 
 	return conf
 }

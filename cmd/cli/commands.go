@@ -5,32 +5,42 @@ import (
 )
 
 type argumentDetails struct {
+	key          string
 	description  string
 	required     bool
 	defaultValue string
 }
 
+type argumentsList []argumentDetails
+
 type commandDetails struct {
+	key         string
 	description string
-	arguments   map[string]argumentDetails
+	arguments   argumentsList
 	handler     func(context.Context, chan<- string, *application, map[string]string)
 }
 
-var commands = map[string]commandDetails{
-	"global-install": {
+type commandsList []commandDetails
+
+var commands = commandsList{
+	{
+		key:         "global-install",
 		description: "Checks prerequisites for installing global controller.",
-		arguments: map[string]argumentDetails{
-			"ms-repo": {
+		arguments: argumentsList{
+			{
+				key:          "ms-repo",
 				description:  "URL of the repository with MetalSoft packages.",
 				required:     false,
 				defaultValue: "http://repo.metalsoft.io",
 			},
-			"ms-repo-secure": {
+			{
+				key:          "ms-repo-secure",
 				description:  "Secure URL of the repository with MetalSoft packages.",
 				required:     false,
 				defaultValue: "https://repo.metalsoft.io",
 			},
-			"ms-registry": {
+			{
+				key:          "ms-registry",
 				description:  "URL of the MetalSoft registry.",
 				required:     false,
 				defaultValue: "https://registry.metalsoft.dev",
@@ -38,15 +48,18 @@ var commands = map[string]commandDetails{
 		},
 		handler: checkGlobalInstall,
 	},
-	"global-operate": {
+	{
+		key:         "global-operate",
 		description: "Checks prerequisites for operating global controller.",
-		arguments:   map[string]argumentDetails{},
+		arguments:   argumentsList{},
 		handler:     checkGlobalOperate,
 	},
-	"global-service": {
+	{
+		key:         "global-service",
 		description: "Runs global controller emulation service.",
-		arguments: map[string]argumentDetails{
-			"listen-ip": {
+		arguments: argumentsList{
+			{
+				key:          "listen-ip",
 				description:  "IP address to listen on.",
 				required:     false,
 				defaultValue: "0.0.0.0",
@@ -54,86 +67,105 @@ var commands = map[string]commandDetails{
 		},
 		handler: runGlobalService,
 	},
-	"site-install": {
+	{
+		key:         "site-install",
 		description: "Checks prerequisites for installing site controller.",
-		arguments:   map[string]argumentDetails{},
+		arguments:   argumentsList{},
 		handler:     checkSiteInstall,
 	},
-	"site-operate": {
+	{
+		key:         "site-operate",
 		description: "Checks prerequisites for operating site controller.",
-		arguments: map[string]argumentDetails{
-			"global-controller-hostname": {
+		arguments: argumentsList{
+			{
+				key:         "global-controller-hostname",
 				description: "IP address or hostname of the global controller.",
 				required:    true,
 			},
-			"nfs-server": {
+			{
+				key:         "nfs-server",
 				description: "NFS server for use by the site controller.",
 				required:    false,
 			},
 		},
 		handler: checkSiteOperate,
 	},
-	"site-manage-switch": {
+	{
+		key:         "site-manage-switch",
 		description: "Checks site controller access to manage switch.",
-		arguments: map[string]argumentDetails{
-			"nos": {
+		arguments: argumentsList{
+			{
+				key:         "nos",
 				description: "The switch NOS - one of (OS10, SONiC, JunOS, Cisco).",
 				required:    true,
 			},
-			"management-ip": {
+			{
+				key:         "management-ip",
 				description: "IP address of the switch management port.",
 				required:    true,
 			},
-			"username": {
+			{
+				key:         "username",
 				description: "Username of the switch management admin user.",
 				required:    true,
 			},
-			"password": {
+			{
+				key:         "password",
 				description: "Password of the switch management admin user.",
 				required:    true,
 			},
 		},
 		handler: checkSiteSwitchManagement,
 	},
-	"site-manage-server": {
+	{
+		key:         "site-manage-server",
 		description: "Checks site controller access to manage server.",
-		arguments: map[string]argumentDetails{
-			"vendor": {
+		arguments: argumentsList{
+			{
+				key:         "vendor",
 				description: "The server vendor - one of (Dell, HP, Lenovo).",
 				required:    true,
 			},
-			"bmc-ip": {
+			{
+				key:         "bmc-ip",
 				description: "IP address of the server BMC interface.",
 				required:    true,
 			},
-			"username": {
+			{
+				key:         "username",
 				description: "Username of the server BMC admin user.",
 				required:    true,
 			},
-			"password": {
+			{
+				key:         "password",
 				description: "Password of the server BMC admin user.",
 				required:    true,
 			},
-			"vnc-port": {
+			{
+				key:          "vnc-port",
 				description:  "VNC service port.",
 				required:     false,
 				defaultValue: "5901",
 			},
-			"vnc-password": {
+			{
+				key:         "vnc-password",
 				description: "VNC password.",
 				required:    false,
 			},
-			"iso-link": {
+			{
+				key:         "iso-link",
 				description: "Link to an ISO to test mounting virtual media.",
 				required:    false,
 			},
 		},
 		handler: checkSiteServerManagement,
 	},
-	"site-service": {
+	{
+		key:         "site-service",
 		description: "Runs global controller emulation service.",
-		arguments: map[string]argumentDetails{
-			"listen-ip": {
+		arguments: argumentsList{
+			{
+				key:          "listen-ip",
 				description:  "IP address to listen on.",
 				required:     false,
 				defaultValue: "0.0.0.0",
