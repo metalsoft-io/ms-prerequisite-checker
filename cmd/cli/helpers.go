@@ -379,8 +379,8 @@ func (app *application) testWebSocketConnection(ctx context.Context, hostname st
 
 	ws, _, err := websocket.Dial(timedCtx, "wss://"+net.JoinHostPort(hostname, strconv.Itoa(port))+path, &options)
 	if err != nil {
-		if strings.Contains(err.Error(), "got 404") {
-			slog.Debug(fmt.Sprintf("WebSocket server %s:%d returned 404 for channel %s - connection OK", hostname, port, path))
+		if strings.Contains(err.Error(), "expected handshake response status code 101 but got ") {
+			slog.Debug(fmt.Sprintf("WebSocket server %s:%d returned error for channel %s - connection OK", hostname, port, path))
 			return 0
 		}
 		slog.Error(fmt.Sprintf("Failed to open WebSocket connection to %s:%d - %s", hostname, port, err.Error()))
