@@ -13,16 +13,28 @@ func checkSiteOperate(ctx context.Context, endCh chan<- string, app *application
 
 	errors := 0
 
-	// Metalsoft Controller TCP ports 80/443
+	// Metalsoft Controller HTTP port 80
 	errors += app.testHTTPConnection(ctx, globalControllerHostname, 80)
+
+	// Metalsoft Controller HTTPS port 443
 	errors += app.testHTTPSConnection(ctx, globalControllerHostname, 443)
 
-	// Metalsoft Controller → TCP ports 9003,9009,9090,9091,9011,9010
-	errors += app.testTCPConnection(ctx, globalControllerHostname, 9003)
-	errors += app.testTCPConnection(ctx, globalControllerHostname, 9009)
-	errors += app.testTCPConnection(ctx, globalControllerHostname, 9010)
-	errors += app.testTCPConnection(ctx, globalControllerHostname, 9011)
-	errors += app.testTCPConnection(ctx, globalControllerHostname, 9090)
+	// Metalsoft Controller TCP port 9003 - eventservice - unused
+	// errors += app.testTCPConnection(ctx, globalControllerHostname, 9003)
+
+	// Metalsoft Controller TCP port 9009 - gateway-api - unused
+	// errors += app.testTCPConnection(ctx, globalControllerHostname, 9009)
+
+	// Metalsoft Controller WebSocket port 9010 - tunnel control messages
+	errors += app.testWebSocketConnection(ctx, globalControllerHostname, 9010, "/tunnel-ctrl")
+
+	// Metalsoft Controller TCP port 9011 - unused
+	// errors += app.testTCPConnection(ctx, globalControllerHostname, 9011)
+
+	// Metalsoft Controller HTTP port 9090 - HTTP Proxy
+	errors += app.testHTTPConnection(ctx, globalControllerHostname, 9090)
+
+	// Metalsoft Controller TCP port 9091 - TCP Proxy
 	errors += app.testTCPConnection(ctx, globalControllerHostname, 9091)
 
 	// Metalsoft Controller - UDP ports 53

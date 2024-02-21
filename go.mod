@@ -10,6 +10,7 @@ require (
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	golang.org/x/crypto v0.18.0
 	golang.org/x/net v0.20.0
+	nhooyr.io/websocket v1.8.10
 )
 
 require (

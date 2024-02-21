@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	ipmi "github.com/bougou/go-ipmi"
@@ -18,6 +19,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
+	"nhooyr.io/websocket"
 )
 
 const TIMEOUT = 10 * time.Second
@@ -355,6 +357,52 @@ func (app *application) testVNCConnection(ctx context.Context, hostname string, 
 	defer client.Close()
 
 	slog.Debug(fmt.Sprintf("Successfully connected to VNC server %s:%d", hostname, port))
+
+	return 0
+}
+
+func (app *application) testWebSocketConnection(ctx context.Context, hostname string, port int, path string) int {
+	slog.Debug(fmt.Sprintf("Testing WebSocket connection to %s:%d", hostname, port))
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	client := &http.Client{Transport: tr}
+	client.Timeout = TIMEOUT
+	options := websocket.DialOptions{
+		HTTPClient: client,
+	}
+
+	timedCtx, _ := context.WithTimeout(ctx, TIMEOUT)
+
+	ws, _, err := websocket.Dial(timedCtx, "wss://"+net.JoinHostPort(hostname, strconv.Itoa(port))+path, &options)
+	if err != nil {
+		if strings.Contains(err.Error(), "got 404") {
+			slog.Debug(fmt.Sprintf("WebSocket server %s:%d returned 404 for channel %s - connection OK", hostname, port, path))
+			return 0
+		}
+		slog.Error(fmt.Sprintf("Failed to open WebSocket connection to %s:%d - %s", hostname, port, err.Error()))
+		return 1
+	}
+	defer ws.Close(websocket.StatusNormalClosure, "")
+	slog.Debug(fmt.Sprintf("WebSocket server %s:%d%s connection established", hostname, port, path))
+
+	err = ws.Write(timedCtx, websocket.MessageText, []byte("PING"))
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to ping WebSocket connection to %s:%d - %s", hostname, port, err.Error()))
+		return 1
+	}
+	slog.Debug(fmt.Sprintf("Sent WebSocket ping to %s:%d", hostname, port))
+
+	messageType, message, err := ws.Read(timedCtx)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to read WebSocket message from %s:%d - %s", hostname, port, err.Error()))
+		return 1
+	}
+	slog.Debug(fmt.Sprintf("Received WebSocket message of type %v: %+v", messageType, message))
+
+	slog.Debug(fmt.Sprintf("Successfully connected to WebSocket server %s:%d", hostname, port))
 
 	return 0
 }
