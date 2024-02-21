@@ -19,7 +19,7 @@ func checkSiteOperate(ctx context.Context, endCh chan<- string, app *application
 	// Metalsoft Controller HTTPS port 443
 	errors += app.testHTTPSConnection(ctx, globalControllerHostname, 443)
 
-	// Metalsoft Controller TCP port 9003 - eventservice - unused
+	// Metalsoft Controller TCP port 9003 - event-service - unused
 	// errors += app.testTCPConnection(ctx, globalControllerHostname, 9003)
 
 	// Metalsoft Controller TCP port 9009 - gateway-api - unused

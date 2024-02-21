@@ -32,7 +32,7 @@ func runGlobalService(ctx context.Context, endCh chan<- string, app *application
 	app.wg.Add(1)
 	go app.startHTTPSServer(ctx, listenIP, 443)
 
-	// eventservice: TCP port 9003
+	// event-service: TCP port 9003
 	// app.wg.Add(1)
 	// go app.startTCPServer(ctx, listenIP, 9003)
 
@@ -56,7 +56,7 @@ func runGlobalService(ctx context.Context, endCh chan<- string, app *application
 	app.wg.Add(1)
 	go app.startTCPServer(ctx, listenIP, 9091)
 
-	// powerdns: UDP port 53
+	// power-dns: UDP port 53
 	app.wg.Add(1)
 	go app.startUDPServer(ctx, listenIP, 53)
 }

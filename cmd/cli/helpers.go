@@ -374,7 +374,8 @@ func (app *application) testWebSocketConnection(ctx context.Context, hostname st
 		HTTPClient: client,
 	}
 
-	timedCtx, _ := context.WithTimeout(ctx, TIMEOUT)
+	timedCtx, cancel := context.WithTimeout(ctx, TIMEOUT)
+	defer cancel()
 
 	ws, _, err := websocket.Dial(timedCtx, "wss://"+net.JoinHostPort(hostname, strconv.Itoa(port))+path, &options)
 	if err != nil {
