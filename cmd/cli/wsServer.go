@@ -41,6 +41,7 @@ func (app *application) startWebSocketServer(ctx context.Context, ip netip.Addr,
 	}
 
 	http.HandleFunc("/tunnel-ctrl", app.wsRequestHandler)
+	http.HandleFunc("/", app.wsRequestHandlerDefault)
 
 	srv := &http.Server{
 		Addr:         address,
@@ -101,4 +102,11 @@ func (app *application) wsRequestHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	slog.Debug("Sent WebSocket message")
+}
+
+func (app *application) wsRequestHandlerDefault(w http.ResponseWriter, r *http.Request) {
+	slog.Debug(fmt.Sprintf("HTTPS request received from %s: %s %s%s", r.RemoteAddr, r.Method, r.Host, r.URL.Path))
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }

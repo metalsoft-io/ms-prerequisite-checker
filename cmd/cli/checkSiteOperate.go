@@ -19,20 +19,11 @@ func checkSiteOperate(ctx context.Context, endCh chan<- string, app *application
 	// Metalsoft Controller HTTPS port 443
 	errors += app.testHTTPSConnection(ctx, globalControllerHostname, 443)
 
-	// Metalsoft Controller TCP port 9003 - event-service - unused
-	// errors += app.testTCPConnection(ctx, globalControllerHostname, 9003)
+	// Metalsoft Controller WebSocketSecure port 9010 - tunnel control messages
+	errors += app.testWebSocketConnection(ctx, globalControllerHostname, 443, "/tunnel-ctrl", true)
 
-	// Metalsoft Controller TCP port 9009 - gateway-api - unused
-	// errors += app.testTCPConnection(ctx, globalControllerHostname, 9009)
-
-	// Metalsoft Controller WebSocket port 9010 - tunnel control messages
-	errors += app.testWebSocketConnection(ctx, globalControllerHostname, 9010, "/tunnel-ctrl")
-
-	// Metalsoft Controller TCP port 9011 - unused
-	// errors += app.testTCPConnection(ctx, globalControllerHostname, 9011)
-
-	// Metalsoft Controller HTTP port 9090 - HTTP Proxy
-	errors += app.testHTTPConnection(ctx, globalControllerHostname, 9090)
+	// Metalsoft Controller HTTPS port 9010 - HTTP Proxy
+	errors += app.testHTTPSConnection(ctx, globalControllerHostname, 9010)
 
 	// Metalsoft Controller TCP port 9091 - TCP Proxy
 	errors += app.testTCPConnection(ctx, globalControllerHostname, 9091)

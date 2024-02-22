@@ -20,6 +20,7 @@ import (
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"nhooyr.io/websocket"
+	"nhooyr.io/websocket/wsjson"
 )
 
 const TIMEOUT = 10 * time.Second
@@ -361,7 +362,7 @@ func (app *application) testVNCConnection(ctx context.Context, hostname string, 
 	return 0
 }
 
-func (app *application) testWebSocketConnection(ctx context.Context, hostname string, port int, path string) int {
+func (app *application) testWebSocketConnection(ctx context.Context, hostname string, port int, path string, secure bool) int {
 	slog.Debug(fmt.Sprintf("Testing WebSocket connection to %s:%d", hostname, port))
 
 	tr := &http.Transport{
@@ -377,33 +378,40 @@ func (app *application) testWebSocketConnection(ctx context.Context, hostname st
 	timedCtx, cancel := context.WithTimeout(ctx, TIMEOUT)
 	defer cancel()
 
-	ws, _, err := websocket.Dial(timedCtx, "wss://"+net.JoinHostPort(hostname, strconv.Itoa(port))+path, &options)
+	var uri string
+	if secure {
+		uri = "wss://" + net.JoinHostPort(hostname, strconv.Itoa(port)) + path
+	} else {
+		uri = "ws://" + net.JoinHostPort(hostname, strconv.Itoa(port)) + path
+	}
+
+	ws, _, err := websocket.Dial(timedCtx, uri, &options)
 	if err != nil {
 		if strings.Contains(err.Error(), "expected handshake response status code 101 but got ") {
-			slog.Debug(fmt.Sprintf("WebSocket server %s:%d returned error for channel %s - connection OK", hostname, port, path))
+			slog.Debug(fmt.Sprintf("WebSocket %s returned error '%s' - connection OK", uri, err.Error()))
 			return 0
 		}
-		slog.Error(fmt.Sprintf("Failed to open WebSocket connection to %s:%d - %s", hostname, port, err.Error()))
+		slog.Error(fmt.Sprintf("Failed to open WebSocket connection to %s - %s", uri, err.Error()))
 		return 1
 	}
 	defer ws.Close(websocket.StatusNormalClosure, "")
-	slog.Debug(fmt.Sprintf("WebSocket server %s:%d%s connection established", hostname, port, path))
+	slog.Debug(fmt.Sprintf("WebSocket %s connection established", uri))
 
-	err = ws.Write(timedCtx, websocket.MessageText, []byte("PING"))
+	err = wsjson.Write(timedCtx, ws, map[string]string{"agent.register": `{"agent_id":"test","agent_type":"test","agent_version":"test","datacenter_id":"test","shared_secret":"test","capabilities":{}}`})
 	if err != nil {
-		slog.Error(fmt.Sprintf("Failed to ping WebSocket connection to %s:%d - %s", hostname, port, err.Error()))
+		slog.Error(fmt.Sprintf("Failed to send WebSocket message to %s - %s", uri, err.Error()))
 		return 1
 	}
-	slog.Debug(fmt.Sprintf("Sent WebSocket ping to %s:%d", hostname, port))
+	slog.Debug(fmt.Sprintf("Sent WebSocket message to %s", uri))
 
 	messageType, message, err := ws.Read(timedCtx)
 	if err != nil {
-		slog.Error(fmt.Sprintf("Failed to read WebSocket message from %s:%d - %s", hostname, port, err.Error()))
-		return 1
+		slog.Debug(fmt.Sprintf("Failed to read WebSocket message from %s - %s - connection OK", uri, err.Error()))
+		return 0
 	}
-	slog.Debug(fmt.Sprintf("Received WebSocket message of type %v: %+v", messageType, message))
+	slog.Debug(fmt.Sprintf("Received WebSocket message from %s of type %v: %+v", uri, messageType, message))
 
-	slog.Debug(fmt.Sprintf("Successfully connected to WebSocket server %s:%d", hostname, port))
+	slog.Debug(fmt.Sprintf("Successfully connected to WebSocket %s", uri))
 
 	return 0
 }
