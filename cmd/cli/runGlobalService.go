@@ -33,9 +33,9 @@ func runGlobalService(ctx context.Context, endCh chan<- string, app *application
 	app.wg.Add(1)
 	go app.startWebSocketServer(ctx, listenIP, 443)
 
-	// tunnel HTTP proxy: TCP port 9010
-	app.wg.Add(1)
-	go app.startHTTPSServer(ctx, listenIP, 9010)
+	// // tunnel HTTP proxy: TCP port 9010
+	// app.wg.Add(1)
+	// go app.startHTTPSServer(ctx, listenIP, 9010)
 
 	// tunnel TCP proxy: TCP port 9091
 	app.wg.Add(1)

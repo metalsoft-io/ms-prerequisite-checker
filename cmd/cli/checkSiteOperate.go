@@ -22,21 +22,21 @@ func checkSiteOperate(ctx context.Context, endCh chan<- string, app *application
 	// Metalsoft Controller WebSocketSecure port 9010 - tunnel control messages
 	errors += app.testWebSocketConnection(ctx, globalControllerHostname, 443, "/tunnel-ctrl", true)
 
-	// Metalsoft Controller HTTPS port 9010 - HTTP Proxy
-	errors += app.testHTTPSConnection(ctx, globalControllerHostname, 9010)
+	// // Metalsoft Controller HTTPS port 9010 - HTTP Proxy
+	// errors += app.testHTTPSConnection(ctx, globalControllerHostname, 9010)
 
 	// Metalsoft Controller TCP port 9091 - TCP Proxy
 	errors += app.testTCPConnection(ctx, globalControllerHostname, 9091)
 
 	// Metalsoft Controller - UDP ports 53
-	errors += app.testUDPConnection(ctx, globalControllerHostname, 53)
+	errors += app.testUDPConnection(ctx, globalControllerHostname, 53, "dns")
 
 	if nfs := args["nfs-server"]; nfs != "" {
 		// NFS server - TCP/UDP ports 111 and 2049
 		errors += app.testTCPConnection(ctx, nfs, 111)
-		errors += app.testUDPConnection(ctx, nfs, 111)
+		errors += app.testUDPConnection(ctx, nfs, 111, "nfs")
 		errors += app.testTCPConnection(ctx, nfs, 2049)
-		errors += app.testUDPConnection(ctx, nfs, 2049)
+		errors += app.testUDPConnection(ctx, nfs, 2049, "nfs")
 	}
 
 	if errors > 0 {

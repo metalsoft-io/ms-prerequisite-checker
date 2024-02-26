@@ -124,7 +124,7 @@ func (app *application) testTCPConnection(ctx context.Context, host string, port
 	return 0
 }
 
-func (app *application) testUDPConnection(ctx context.Context, host string, port int) int {
+func (app *application) testUDPConnection(ctx context.Context, host string, port int, kind string) int {
 	slog.Debug(fmt.Sprintf("Testing UDP connection to %s:%d", host, port))
 
 	conn, err := net.Dial("udp", net.JoinHostPort(host, strconv.Itoa(port)))
@@ -134,7 +134,14 @@ func (app *application) testUDPConnection(ctx context.Context, host string, port
 	}
 	defer conn.Close()
 
-	dataIn := []byte{0xAB, 0xCD, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x74, 0x65, 0x73, 0x74, 0x02, 0x69, 0x6F, 0x00, 0x00, 0x01, 0x00, 0x01}
+	var dataIn []byte
+	if kind == "dns" {
+		// DNS query
+		dataIn = []byte{0xAB, 0xCD, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x74, 0x65, 0x73, 0x74, 0x02, 0x69, 0x6F, 0x00, 0x00, 0x01, 0x00, 0x01}
+	} else {
+		// Generic UDP ping
+		dataIn = []byte("PING")
+	}
 	err = conn.SetWriteDeadline(time.Now().Add(TIMEOUT))
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for UDP connection to %s:%d - %s", host, port, err.Error()))
