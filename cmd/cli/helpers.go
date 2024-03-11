@@ -192,6 +192,7 @@ func (app *application) testSSHConnection(ctx context.Context, host string, port
 		User: username,
 		Auth: []ssh.AuthMethod{
 			ssh.KeyboardInteractive(sshInteractive),
+			ssh.Password(password),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         TIMEOUT,
