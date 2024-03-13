@@ -14,6 +14,8 @@ import (
 )
 
 var version string
+var builddate string
+var githash string
 
 type application struct {
 	wg sync.WaitGroup
@@ -98,7 +100,7 @@ func processArguments() (conf runtimeConfiguration) {
 	flag.Parse()
 
 	if *displayVersion {
-		fmt.Printf("Version:\t%s\n", version)
+		fmt.Printf("Version:\t%s\nBuild date:\t%s\nGit hash:\t%s\n", version, builddate, githash)
 		os.Exit(0)
 	}
 
