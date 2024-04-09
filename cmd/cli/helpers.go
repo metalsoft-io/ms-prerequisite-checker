@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -115,6 +116,63 @@ func (app *application) testTCPConnection(ctx context.Context, host string, port
 	dataOut := make([]byte, 1024)
 	bytesRead, err := conn.Read(dataOut)
 	if err != nil {
+		slog.Warn(fmt.Sprintf("Could not read from TCP connection to %s:%d - %s", host, port, err.Error()))
+		return 0
+	}
+
+	slog.Debug(fmt.Sprintf("Read %d bytes from TCP %s:%d - %s", bytesRead, host, port, string(dataOut[:bytesRead])))
+
+	return 0
+}
+
+func (app *application) testEncryptedTCPConnection(ctx context.Context, host string, port int) int {
+	slog.Debug(fmt.Sprintf("Testing encrypted TCP connection to %s:%d", host, port))
+
+	caCertPool := x509.NewCertPool()
+	ok := caCertPool.AppendCertsFromPEM(getCACertificate())
+	if !ok {
+		slog.Error("Failed to load client certificate")
+		return 1
+	}
+
+	cfg := &tls.Config{
+		RootCAs:    caCertPool,
+		ServerName: "localhost",
+	}
+
+	dialer := &net.Dialer{
+		Timeout: 30 * time.Second,
+	}
+
+	conn, err := tls.DialWithDialer(dialer, "tcp", net.JoinHostPort(host, strconv.Itoa(port)), cfg)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed test for TCP connection to %s:%d - %s", host, port, err.Error()))
+		return 1
+	}
+	defer conn.Close()
+
+	err = conn.SetWriteDeadline(time.Now().Add(TIMEOUT))
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed test for TCP connection to %s:%d - %s", host, port, err.Error()))
+		return 1
+	}
+	dataIn := []byte("T12345678901234567890123456789012345")
+	bytesWritten, err := conn.Write(dataIn)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed test for TCP connection to %s:%d - %s", host, port, err.Error()))
+		return 1
+	}
+
+	slog.Debug(fmt.Sprintf("Wrote %d bytes to TCP %s:%d - %s", bytesWritten, host, port, string(dataIn)))
+
+	err = conn.SetReadDeadline(time.Now().Add(TIMEOUT))
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed test for TCP connection to %s:%d - %s", host, port, err.Error()))
+		return 1
+	}
+	dataOut := make([]byte, 1024)
+	bytesRead, err := conn.Read(dataOut)
+	if err != nil && err.Error() != "EOF" {
 		slog.Warn(fmt.Sprintf("Could not read from TCP connection to %s:%d - %s", host, port, err.Error()))
 		return 0
 	}
@@ -405,19 +463,47 @@ func (app *application) testWebSocketConnection(ctx context.Context, hostname st
 	defer ws.Close(websocket.StatusNormalClosure, "")
 	slog.Debug(fmt.Sprintf("WebSocket %s connection established", uri))
 
-	err = wsjson.Write(timedCtx, ws, map[string]string{"agent.register": `{"agent_id":"test","agent_type":"test","agent_version":"test","datacenter_id":"test","shared_secret":"test","capabilities":{}}`})
+	payload := AgentRegistrationRequest{
+		AgentId:      "test",
+		AgentType:    "test",
+		AgentVersion: version,
+		DatacenterId: "test",
+		SharedSecret: "test",
+		Capabilities: Capabilities{
+			HttpProxyEnabled:          false,
+			InBandHttpProxyEnabled:    false,
+			FileTransferEnabled:       false,
+			InBandFileTransferEnabled: false,
+			SwitchSubscriptionEnabled: false,
+			CommandExecutionEnabled:   false,
+			VncEnabled:                false,
+			SpiceEnabled:              false,
+		},
+	}
+
+	payloadJson, err := json.Marshal(payload)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to create test request: %s", err.Error()))
+		return 1
+	}
+
+	message := map[string]string{
+		"agent.register": string(payloadJson),
+	}
+
+	err = wsjson.Write(timedCtx, ws, message)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed to send WebSocket message to %s - %s", uri, err.Error()))
 		return 1
 	}
 	slog.Debug(fmt.Sprintf("Sent WebSocket message to %s", uri))
 
-	messageType, message, err := ws.Read(timedCtx)
+	messageType, responseMessage, err := ws.Read(timedCtx)
 	if err != nil {
 		slog.Debug(fmt.Sprintf("Failed to read WebSocket message from %s - %s - connection OK", uri, err.Error()))
 		return 0
 	}
-	slog.Debug(fmt.Sprintf("Received WebSocket message from %s of type %v: %+v", uri, messageType, message))
+	slog.Debug(fmt.Sprintf("Received WebSocket message from %s of type %v: %+v", uri, messageType, responseMessage))
 
 	slog.Debug(fmt.Sprintf("Successfully connected to WebSocket %s", uri))
 

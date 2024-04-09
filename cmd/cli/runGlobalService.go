@@ -39,7 +39,11 @@ func runGlobalService(ctx context.Context, endCh chan<- string, app *application
 
 	// tunnel TCP proxy: TCP port 9091
 	app.wg.Add(1)
-	go app.startTCPServer(ctx, listenIP, 9091)
+	if major > 6 || (major == 6 && minor >= 3) {
+		go app.startTCPServer(ctx, listenIP, 9091, true)
+	} else {
+		go app.startTCPServer(ctx, listenIP, 9091, false)
+	}
 
 	// power-dns: UDP port 53
 	app.wg.Add(1)

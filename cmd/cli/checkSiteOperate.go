@@ -26,7 +26,11 @@ func checkSiteOperate(ctx context.Context, endCh chan<- string, app *application
 	// errors += app.testHTTPSConnection(ctx, globalControllerHostname, 9010)
 
 	// Metalsoft Controller TCP port 9091 - TCP Proxy
-	errors += app.testTCPConnection(ctx, globalControllerHostname, 9091)
+	if major > 6 || (major == 6 && minor >= 3) {
+		errors += app.testEncryptedTCPConnection(ctx, globalControllerHostname, 9091)
+	} else {
+		errors += app.testTCPConnection(ctx, globalControllerHostname, 9091)
+	}
 
 	// Metalsoft Controller - UDP ports 53
 	errors += app.testUDPConnection(ctx, globalControllerHostname, 53, "dns")

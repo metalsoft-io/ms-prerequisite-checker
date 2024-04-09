@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"log/slog"
 	"net"
@@ -10,14 +11,27 @@ import (
 	"time"
 )
 
-func (app *application) startTCPServer(ctx context.Context, ip netip.Addr, port uint16) {
+func (app *application) startTCPServer(ctx context.Context, ip netip.Addr, port uint16, encrypted bool) {
 	defer app.wg.Done()
 
 	address := netip.AddrPortFrom(ip, port).String()
 
 	slog.Info(fmt.Sprintf("Starting TCP server on port %s", address))
 
-	ln, err := net.Listen("tcp", address)
+	var err error
+	var ln net.Listener
+	if encrypted {
+		var cert tls.Certificate
+		cert, err = tls.X509KeyPair(getServerCertificate(), getServerPrivateKey())
+		if err != nil {
+			slog.Error(fmt.Sprintf("Failed to load server certificate: %s", err.Error()))
+			return
+		}
+
+		ln, err = tls.Listen("tcp", address, &tls.Config{Certificates: []tls.Certificate{cert}})
+	} else {
+		ln, err = net.Listen("tcp", address)
+	}
 	if err != nil {
 		slog.Error(fmt.Sprintf("Error starting TCP server on %s - %s", address, err.Error()))
 		return

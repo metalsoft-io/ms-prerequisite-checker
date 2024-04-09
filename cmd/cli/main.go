@@ -2,18 +2,22 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 )
 
 var version string
+var major, minor int
 
 type application struct {
 	wg sync.WaitGroup
@@ -28,6 +32,8 @@ type runtimeConfiguration struct {
 
 func main() {
 	config := processArguments()
+
+	major, minor, _, _ = parseVersionString(version)
 
 	slog.SetDefault(slog.New(NewLogHandler(os.Stdout, config.logLevel)))
 
@@ -155,4 +161,29 @@ func processArguments() (conf runtimeConfiguration) {
 	conf.handler = commands[cmdIndex].handler
 
 	return conf
+}
+
+func parseVersionString(version string) (int, int, int, error) {
+	// Regular expression for version parsing
+	re := regexp.MustCompile(`^[A-z]*(\d+)\.(\d+)\.?(\d+)?`)
+	if !re.MatchString(version) {
+		return 0, 0, 0, errors.New("invalid version string")
+	}
+
+	// Split the version string into parts
+	versionParts := re.FindStringSubmatch(version)
+
+	major, _ := strconv.Atoi(versionParts[1])
+
+	minor := 0
+	if len(versionParts) >= 3 {
+		minor, _ = strconv.Atoi(versionParts[2])
+	}
+
+	patch := 0
+	if len(versionParts) >= 4 {
+		patch, _ = strconv.Atoi(versionParts[3])
+	}
+
+	return major, minor, patch, nil
 }
