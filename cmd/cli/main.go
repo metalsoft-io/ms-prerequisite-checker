@@ -101,13 +101,22 @@ func processArguments() (conf runtimeConfiguration) {
 
 	flag.StringVar(&conf.logLevel, "log-level", "INFO", "Sets log level [default 'INFO']")
 
-	displayVersion := flag.Bool("version", false, "Display version and exit")
+	var displayVersion bool
+	flag.BoolVar(&displayVersion, "version", false, "Display version and exit")
+	flag.BoolVar(&displayVersion, "v", false, "Display version and exit (short)")
+
+	var debug bool
+	flag.BoolVar(&debug, "d", false, "Shortcut for --log-level=DEBUG")
 
 	flag.Parse()
 
-	if *displayVersion {
+	if displayVersion {
 		fmt.Printf("Version:\t%s\nBuild date:\t%s\nGit hash:\t%s\n", version, builddate, githash)
 		os.Exit(0)
+	}
+
+	if debug {
+		conf.logLevel = "DEBUG"
 	}
 
 	if flag.NArg() < 1 {
