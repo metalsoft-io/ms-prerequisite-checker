@@ -1,0 +1,70 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21.5'
+
+      - name: Get version from tag
+        id: get_version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            VERSION=${VERSION#v}
+          else
+            VERSION=$(git describe --tags --always --dirty | sed 's/^v//')
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Build binary
+        env:
+          CGO_ENABLED: 0
+          GOOS: linux
+          GOARCH: amd64
+          VERSION: ${{ steps.get_version.outputs.version }}
+          BUILD_DATE: ${{ github.event.head_commit.timestamp || github.run_started_at }}
+          GIT_HASH: ${{ github.sha }}
+        run: |
+          mkdir -p ./bin/linux_amd64
+          go build -ldflags "-s -w -X main.version=$VERSION -X main.builddate=$BUILD_DATE -X main.githash=$GIT_HASH" \
+            -o ./bin/linux_amd64/ms-prerequisite-check ./cmd/cli
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ms-prerequisite-check-linux-amd64
+          path: ./bin/linux_amd64/ms-prerequisite-check
+          retention-days: 30
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./bin/linux_amd64/ms-prerequisite-check
+          name: Release ${{ steps.get_version.outputs.version }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
