@@ -37,6 +37,12 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
+      - name: Create placeholder cert files
+        run: |
+          mkdir -p ./certs/certs
+          echo "# Placeholder certificate file" > ./certs/certs/cert.pem
+          echo "# Placeholder key file" > ./certs/certs/key.pem
+
       - name: Build binary
         env:
           CGO_ENABLED: 0
