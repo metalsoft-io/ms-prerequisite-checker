@@ -10,8 +10,8 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/coder/websocket"
 	"metalsoft.io/prerequisite-check/certs"
-	"nhooyr.io/websocket"
 )
 
 func (app *application) startWebSocketServer(ctx context.Context, ip netip.Addr, port uint16) {

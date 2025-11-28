@@ -15,13 +15,13 @@ import (
 	"time"
 
 	ipmi "github.com/bougou/go-ipmi"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	"github.com/go-resty/resty/v2"
 	"github.com/mitchellh/go-vnc"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
 )
 
 const TIMEOUT = 10 * time.Second
@@ -386,12 +386,12 @@ func (app *application) testIPMIConnection(ctx context.Context, hostname string,
 
 	client.Interface = "lanplus"
 
-	if err := client.Connect(); err != nil {
+	if err := client.Connect(ctx); err != nil {
 		slog.Error(fmt.Sprintf("Failed to open IPMI connection to %s:%d - %s", hostname, port, err.Error()))
 		return 1
 	}
 
-	response, err := client.GetSystemGUID()
+	response, err := client.GetSystemGUID(ctx)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed test for IPMI connection to %s:%d - %s", hostname, port, err.Error()))
 		return 1

@@ -2,8 +2,6 @@
 
 Stand-alone tool to check access required to install and operate MetalSoft global and site controllers.
 
-Requirements: <https://metalsoft.atlassian.net/browse/MS-4809>
-
 ## Checks
 
 ### Global Controller installation
@@ -166,13 +164,13 @@ go run "C:\Program Files\Go\src\crypto\tls\generate_cert.go" --rsa-bits=2048 --h
 ### Linux
 
 ```bash
-GOOS='linux' GOARCH='amd64' CGO_ENABLED='0' go build -ldflags "-s -X main.version=6.2.0" -o ./bin/linux_amd64/ms-prerequisite-check ./cmd/cli
+GOOS='linux' GOARCH='amd64' CGO_ENABLED='0' go build -ldflags "-s -X main.version=7.0.0" -o ./bin/linux_amd64/ms-prerequisite-check ./cmd/cli
 ```
 
 ### Windows PowerShell
 
 ```bash
-$Env:GOOS='windows' ; $Env:GOARCH='amd64' ; go build -ldflags "-s -X main.version=6.2.0" -o ./bin/windows_amd64/ms-prerequisite-check.exe ./cmd/cli
+$Env:GOOS='windows' ; $Env:GOARCH='amd64' ; go build -ldflags "-s -X main.version=7.0.0" -o ./bin/windows_amd64/ms-prerequisite-check.exe ./cmd/cli
 ```
 
 ## Running
